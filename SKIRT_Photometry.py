@@ -348,10 +348,10 @@ if __name__=='__main__':
     skirt_path = f'{project_path}/Scripts/SKIRT'
     
     # produce cube
-    run_skirt(snap,sub,sim_tag,
-              sim_path=sim_path,
-              tmp_path=tmp_path,
-              skirt_path=skirt_path)
+    #run_skirt(snap,sub,sim_tag,
+    #          sim_path=sim_path,
+    #          tmp_path=tmp_path,
+    #          skirt_path=skirt_path)
 
     # photometry and spectroscopy
     for cam in ['v0','v1','v2','v3']:
