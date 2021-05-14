@@ -329,14 +329,14 @@ def spectroscopy(cube_dir,snap,sub,cam,sim_tag,out_path):
 
 if __name__=='__main__':
     
-    snap = 51
-    sub = 4
+    snap = 67
+    sub = 23
     sim_tag = 'TNG50-1'
     
     # base path where TNG data is stored
-    sim_path = f'/home/bottrell/scratch/Simulations/{sim_tag}/output'
+    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
     # base path of output directory
-    project_path = '/home/bottrell/projects/def-simardl/bottrell/Simulations/IllustrisTNG'
+    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
     # photometry path
     phot_path = f'{project_path}/{sim_tag}/postprocessing/Photometry/{snap:03}'
     # spectroscopy path
@@ -344,7 +344,7 @@ if __name__=='__main__':
 
 
     # working directory for job
-    tmp_path=f'/scratch/bottrell/tmpdir/tmp_{snap:03d}-{sub}'
+    tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
     skirt_path = f'{project_path}/Scripts/SKIRT'
     
     # produce cube
@@ -357,8 +357,6 @@ if __name__=='__main__':
     for cam in ['v0','v1','v2','v3']:
         photometry(cube_dir=tmp_path,snap=snap,sub=sub,cam=cam,sim_tag=sim_tag,
                    skirt_path=skirt_path,sim_path=sim_path,out_path=phot_path)
-        spectroscopy(cube_dir=tmp_path,snap=snap,sub=sub,cam=cam,sim_tag=sim_tag,
-                     out_path=spec_path)
     
     # clean up
     # os.system(f'rm -rf {tmp_path}')

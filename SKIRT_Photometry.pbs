@@ -1,0 +1,21 @@
+#!/bin/bash 
+#PBS -N SKIRT
+#PBS -o /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/PBS
+#PBS -e /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/PBS
+#PBS -l select=4:ncpus=8
+#PBS -l walltime=36:00:00
+#PBS -l pmem=2gb
+#PBS -u connor.bottrell
+#PBS -M connor.bottrell@ipmu.jp
+#PBS -m ae
+#PBS -V
+#PBS -q small
+
+source $HOME/venv/tf38_cpu/bin/activate
+export SKIRT_NTASKS=4
+export SKIRT_CPUS_PER_TASK=8
+
+cd /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT
+
+python SKIRT_Photometry.py
+
