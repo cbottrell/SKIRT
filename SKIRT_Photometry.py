@@ -1,10 +1,31 @@
-import os,sys,re,string,time
+import os,sys,re,string,time,glob
 import numpy as np
 import scipy.spatial as spt
 from astropy.io import fits
 import h5py
 import illustris_tools as it
 import illustris_python as il
+
+def get_subhalos(basePath,snap,mstar_lower=0,mstar_upper=np.inf):
+    '''
+    mstar_lower and mstar_upper have log10(Mstar/Msun) units and are physical (i.e. Msun, not Msun/h).
+    '''
+    from astropy.cosmology import Planck15 as cosmo
+    little_h = cosmo.H0.value/100.
+    
+    ptNumStars = il.snapshot.partTypeNum('stars') 
+    fields = ['SubhaloMassType','SubhaloFlag']
+    subs = il.groupcat.loadSubhalos(basePath,snap,fields=fields)
+
+    mstar = subs['SubhaloMassType'][:,ptNumStars]
+    flags = subs['SubhaloFlag']
+    subs = np.arange(subs['count'],dtype=int)
+    
+    # convert to units used by TNG (1e10 Msun/h)
+    mstar_lower = 10**(mstar_lower)/1e10*little_h
+    mstar_upper = 10**(mstar_upper)/1e10*little_h
+    subs = subs[(flags!=0)*(mstar>=mstar_lower)*(mstar<=mstar_upper)]
+    return subs,mstar[subs]
 
 def apply_filter(data_cube,wavelengths,filter_data,redshift=0.0,airmass=0.):
     '''
@@ -174,7 +195,8 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         #setup KDTree
         tree = spt.cKDTree(coords,leafsize = 100)
         environ = os.environ
-        nthreads = int(environ['SKIRT_CPUS_PER_TASK']) if 'SKIRT_CPUS_PER_TASK' in environ else 1
+        #nthreads = int(environ['SKIRT_CPUS_PER_TASK']) if 'SKIRT_CPUS_PER_TASK' in environ else 1
+        nthreads = 52
         if nthreads>1:
             from multiprocessing import Pool
             argList = [(smoothlength,point,tree) for point in coords]
@@ -192,18 +214,24 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         #metallicity (actual metallicity, not in solar units)
         Z = stars["GFM_Metallicity"][star_idx]
         #age of the stars in years
-        t = it.age(stars["GFM_StellarFormationTime"][star_idx],a2)
+        if nthreads>1:
+            from multiprocessing import Pool
+            argList = [(a1,a2) for a1 in stars["GFM_StellarFormationTime"][star_idx]]
+            with Pool(nthreads) as pool:
+                t = np.asarray(pool.starmap(it.age,argList))
+        else:
+            t = it.age(stars["GFM_StellarFormationTime"][star_idx],a2)
         #parameters for all stars
-        total = np.column_stack((coords,h,M,Z,t))
+        total_stars = np.column_stack((coords,h,M,Z,t))
 
         ### Old stars ####
         age_idx = t>1e7 #only consider stars older than 10Myr for bruzual charlot spectra
-        np.savetxt(f'{tmp_path}/{f_stars}',total[age_idx],delimiter = " ")
+        np.savetxt(f'{tmp_path}/{f_stars}',total_stars[age_idx],delimiter = " ")
 
         ### Young stars ###
         age_idx = t<=1e7 #only consider stars younger than 10Myr for MappingsIII spectra
         #calculate SFR (assuming SFR has been constant in the last 10Myr)
-        SFRm = total[age_idx,4]/1e7
+        SFRm = total_stars[age_idx,4]/1e7
         #for compactness, take typical value of 5:
         logC = np.full(len(SFRm),5)
         #for ISM pressure, take typical value log(P/kB / cm^-3K) = 5, P = 1.38e-12 N/m2
@@ -214,11 +242,14 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         young_stars = np.column_stack((coords[age_idx],h[age_idx],
                                        SFRm,Z[age_idx],logC,pISM,fPDR))
         np.savetxt(f'{tmp_path}/{f_mappings}',young_stars,delimiter = " ")
-    
+    else:
+        #load young star properties for gas/dust calculations
+        young_stars = np.loadtxt(f'{tmp_path}/{f_mappings}')
+
     #############
     #### Gas ####
     #############
-    fields = ["Coordinates","Density","GFM_Metallicity","InternalEnergy","ElectronAbundance","StarFormationRate"]
+    fields = ["Coordinates","Density","GFM_Metallicity","InternalEnergy","ElectronAbundance","StarFormationRate","Masses"]
     #load gas particles
     gas = il.snapshot.loadHalo(sim_path,snap,group_idx,0,fields)
     # allow possibility of no gas
@@ -239,8 +270,27 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         T = it.temp(gas["InternalEnergy"][gas_idx],gas["ElectronAbundance"][gas_idx])
         #SFR of gas cell
         SFRg = gas["StarFormationRate"][gas_idx]
+        #metal mass of each gas cells
+        metal_mass = Zg*it.convertmass(gas["Masses"][gas_idx])
+        #Correct for double accounting of dust in PDR regions
+        #Calculate mass of metals in the PDR and take this from the stellar particles within the smoothing length
+        for young_star in young_stars:
+            #assume metallicity of star equals metallicity of parent PDR
+            #factor of 10 assumes Mpdr = 10 x Mstar
+            metal_mass_PDR = 10 * young_star[5] * young_star[4]*1e7                  
+            metal_mass_excess, n_grow = -1, 1.
+            #grow N until the enclosed dust mass in h*N exceeds PDR mass
+            while metal_mass_excess < 0:
+                loc_idx = ( np.sum((coords-young_star[:3])**2,axis=1) < (n_grow*young_star[3])**2 )
+                #Metal mass in the gas cells within that smoothing length
+                loc_metal_mass = np.sum(metal_mass[loc_idx])
+                #Metal mass left over in the gas cells after subtracting pdr contribution
+                metal_mass_excess = loc_metal_mass - metal_mass_PDR
+                n_grow *= 2.
+            norm = loc_metal_mass/metal_mass_excess
+            Zg[loc_idx] = Zg[loc_idx]/norm
         #Calculate the dust abunndance
-        #set density to zero where Temperature is above threshold value and where there is no SFR
+        #Set density to zero where Temperature is above threshold value and where there is no SFR
         #Dust properties
         Tthreshold = 75000 #define temperature threshold for dust formation
         Zg[((T > Tthreshold) & (SFRg == 0))] = 0.0
@@ -253,8 +303,8 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
 
     ncells = len(coords)
     #create 2D-array and write into data file
-    totalg = np.column_stack((coords,rhog,dustAbundance))
-    np.savetxt(f'{tmp_path}/{f_gas}',totalg,delimiter = " ")
+    total_gas = np.column_stack((coords,rhog,dustAbundance))
+    np.savetxt(f'{tmp_path}/{f_gas}',total_gas,delimiter = " ")
 
     return fovsize,npix,ncells,f_stars,f_mappings,f_gas
 
@@ -320,17 +370,12 @@ def run_skirt(snap,sub,sim_tag,sim_path,tmp_path,skirt_path):
         
         
 def spectroscopy(cube_dir,snap,sub,cam,sim_tag,out_path):
-    sim_path = '/home/bottrell/projects/def-simardl/bottrell/Simulations/IllustrisTNG'
-    out_path = f'{sim_path}/{sim_tag}/postprocessing/Spectroscopy/{snap:03}'
-    if not os.access(out_path,0):
-        os.system(f'mkdir -p {out_path}')
-    os.system(f'cp {cube_dir}/shalo_{snap:03d}-{sub}_{cam}_sed.dat {out_path}')
+    return
 
 
 if __name__=='__main__':
     
-    snap = 67
-    sub = 23
+    snap = int(sys.argv[1])
     sim_tag = 'TNG50-1'
     
     # base path where TNG data is stored
@@ -341,22 +386,37 @@ if __name__=='__main__':
     phot_path = f'{project_path}/{sim_tag}/postprocessing/Photometry/{snap:03}'
     # spectroscopy path
     spec_path = f'{project_path}/{sim_tag}/postprocessing/Spectroscopy/{snap:03}'
+    
+    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
+    sub = subs[int(sys.argv[2])]
 
-
+#     sub = 4
+    
+    cams = ['v0','v1','v2','v3']
+    # If all files are found, skip. If only some are found, delete and redo.
+    outfiles = glob.glob(f'{phot_path}/shalo_{snap:03}-{sub}_*_photo.fits')
+    if len(outfiles)!=len(cams):
+        for outfile in outfiles:
+            if os.access(outfile,0): 
+                os.remove(outfile)
+    else:
+        sys.exit(f'All output files already exist for {sim_tag}-{snap:03}-{sub}.')
+    
+        
     # working directory for job
     tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
     skirt_path = f'{project_path}/Scripts/SKIRT'
     
     # produce cube
-    #run_skirt(snap,sub,sim_tag,
-    #          sim_path=sim_path,
-    #          tmp_path=tmp_path,
-    #          skirt_path=skirt_path)
+    run_skirt(snap,sub,sim_tag,
+             sim_path=sim_path,
+             tmp_path=tmp_path,
+             skirt_path=skirt_path)
 
     # photometry and spectroscopy
-    for cam in ['v0','v1','v2','v3']:
+    for cam in cams:
         photometry(cube_dir=tmp_path,snap=snap,sub=sub,cam=cam,sim_tag=sim_tag,
                    skirt_path=skirt_path,sim_path=sim_path,out_path=phot_path)
     
     # clean up
-    # os.system(f'rm -rf {tmp_path}')
+    os.system(f'rm -rf {tmp_path}')
