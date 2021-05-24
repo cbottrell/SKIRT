@@ -1,0 +1,24 @@
+#!/bin/bash 
+#PBS -N Run_SKIRT
+#PBS -o /home/connor.bottrell/Scratch/pbs
+#PBS -e /home/connor.bottrell/Scratch/pbs
+#PBS -l select=1:ncpus=48
+#PBS -l walltime=24:00:00
+#PBS -l pmem=3gb
+#PBS -J 1-2746:2
+#PBS -u connor.bottrell
+#PBS -M connor.bottrell@ipmu.jp
+#PBS -m ae
+#PBS -V
+#PBS -q small
+
+source $HOME/venv/tf38_cpu/bin/activate
+export SKIRT_NTASKS=6
+export SKIRT_CPUS_PER_TASK=8
+export PATH=$HOME/utils/SKIRT/release/SKIRT/main:$PATH
+export SNAP=67
+
+cd /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT
+
+python Run_SKIRT.py $SNAP $PBS_ARRAY_INDEX
+
