@@ -3,8 +3,8 @@
 #PBS -o /home/connor.bottrell/Scratch/pbs
 #PBS -e /home/connor.bottrell/Scratch/pbs
 #PBS -l select=1:ncpus=1
-#PBS -l walltime=24:00:00
-#PBS -l pmem=16gb
+#PBS -l walltime=96:00:00
+#PBS -l pmem=64gb
 #PBS -J 0-2746:1
 #PBS -u connor.bottrell
 #PBS -M connor.bottrell@ipmu.jp
