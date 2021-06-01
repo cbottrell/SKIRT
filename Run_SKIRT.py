@@ -298,7 +298,7 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
             DTM = it.DTM(Zg/0.014) #gas phase metallicity in solar units
             dustAbundance = Zg * DTM 
             # set lower bound for dust abundance
-            dustAbundance[np.isnan(dustAbundance)]=0.0
+            dustAbundance[np.isnan(dustAbundance)]=1e-15
         else:
             coords,rhog,dustAbundance = np.array([[],[],[]]).T,[],[]
         #create 2D-array and write into data file
@@ -320,8 +320,13 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path):
     Paths default to working directory if not specified.
     '''
     
+    fovsize,npix,ncells,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path)
+    
     snap,sub = int(snap),int(sub)
-    ski_in = f'{skirt_path}/shalo.ski'
+    if ncells==0:
+        ski_in = f'{skirt_path}/shalo-no_dust.ski'
+    else:
+        ski_in = f'{skirt_path}/shalo.ski'
 
     if not os.access(tmp_path,0):
         os.system(f'mkdir -p {tmp_path}')
@@ -332,8 +337,6 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path):
     
     f_wavelengths = 'Wavelength_Grid.dat'
     os.system(f'cp {skirt_path}/{f_wavelengths} {tmp_path}/{f_wavelengths}')
-    
-    fovsize,npix,ncells,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path)
     
     cams = np.array(['v0','v1','v2','v3'])
     incls = [109.5,109.5,109.5,0.]
