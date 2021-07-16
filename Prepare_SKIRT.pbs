@@ -2,18 +2,17 @@
 #PBS -N Prep_SKIRT
 #PBS -o /home/connor.bottrell/Scratch/pbs
 #PBS -e /home/connor.bottrell/Scratch/pbs
-#PBS -l select=1:ncpus=1
-#PBS -l walltime=96:00:00
-#PBS -l pmem=64gb
-#PBS -J 0-2746:1
-#PBS -u connor.bottrell
+#PBS -l select=1:ncpus=1:mem=64gb
+#PBS -l walltime=72:0:0
+#PBS -J 0-3000:1
+#PBS -u bottrell
 #PBS -M connor.bottrell@ipmu.jp
 #PBS -m ae
 #PBS -V
 #PBS -q tiny
 
 source $HOME/venv/tf38_cpu/bin/activate
-export SNAP=67
+export SNAP=84
 
 cd /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT
 
