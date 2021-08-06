@@ -4,18 +4,18 @@
 #PBS -e /home/connor.bottrell/Scratch/pbs
 #PBS -l select=1:ncpus=50:mem=320gb
 #PBS -l walltime=24:00:00
-#PBS -J 2001-3100:1
+#PBS -J 0-3000:1
 #PBS -u bottrell
 #PBS -M connor.bottrell@ipmu.jp
 #PBS -m ae
 #PBS -V
-#PBS -q small
+#PBS -q mini
 
 source $HOME/venv/tf38_cpu/bin/activate
 export SKIRT_NTASKS=5
 export SKIRT_CPUS_PER_TASK=10
 export PATH=$HOME/utils/SKIRT/release/SKIRT/main:$PATH
-export SNAP=84
+export SNAP=78
 
 cd /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT
 
