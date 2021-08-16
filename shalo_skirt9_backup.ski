@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A SKIRT parameter file © Astronomical Observatory, Ghent University -->
+<skirt-simulation-hierarchy type="MonteCarloSimulation" format="9" producer="SKIRT v9.0 (git a3abee9 built on 07/08/2021 at 08:52:03)" time="2021-08-08T05:43:18.506">
+    <MonteCarloSimulation userLevel="Regular" simulationMode="ExtinctionOnly" numPackets="_NUMPACKAGES_">
+        <random type="Random">
+            <Random seed="12345"/>
+        </random>
+        <units type="Units">
+            <ExtragalacticUnits fluxOutputStyle="Wavelength"/>
+        </units>
+        <cosmology type="Cosmology">
+            <LocalUniverseCosmology/>
+        </cosmology>
+        <sourceSystem type="SourceSystem">
+            <SourceSystem minWavelength="0.1 micron" maxWavelength="5 micron" wavelengths="0.55 micron" sourceBias="0.5">
+                <sources type="Source">
+                    <ParticleSource filename="_FILENAME_STARS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                        <smoothingKernel type="SmoothingKernel">
+                            <CubicSplineSmoothingKernel/>
+                        </smoothingKernel>
+                        <sedFamily type="SEDFamily">
+                            <BruzualCharlotSEDFamily imf="Chabrier" resolution="Low"/>
+                        </sedFamily>
+                        <wavelengthBiasDistribution type="WavelengthDistribution">
+                            <LogWavelengthDistribution minWavelength="0.1 micron" maxWavelength="5 micron"/>
+                        </wavelengthBiasDistribution>
+                    </ParticleSource>
+                    <ParticleSource filename="_FILENAME_MAPPINGS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                        <smoothingKernel type="SmoothingKernel">
+                            <CubicSplineSmoothingKernel/>
+                        </smoothingKernel>
+                        <sedFamily type="SEDFamily">
+                            <MappingsSEDFamily/>
+                        </sedFamily>
+                        <wavelengthBiasDistribution type="WavelengthDistribution">
+                            <LogWavelengthDistribution minWavelength="0.1 micron" maxWavelength="5 micron"/>
+                        </wavelengthBiasDistribution>
+                    </ParticleSource>
+                </sources>
+            </SourceSystem>
+        </sourceSystem>
+        <mediumSystem type="MediumSystem">
+            <MediumSystem numDensitySamples="100">
+                <photonPacketOptions type="PhotonPacketOptions">
+                    <PhotonPacketOptions forceScattering="true" minWeightReduction="1e4" minScattEvents="0" pathLengthBias="0.5"/>
+                </photonPacketOptions>
+                <extinctionOnlyOptions type="ExtinctionOnlyOptions">
+                    <ExtinctionOnlyOptions storeRadiationField="false"/>
+                </extinctionOnlyOptions>
+                <media type="Medium">
+                    <VoronoiMeshMedium filename="_FILENAME_GAS_" minX="-_SIZE_ pc" maxX="_SIZE_ pc" minY="-_SIZE_ pc" maxY="_SIZE_ pc" minZ="-_SIZE_ pc" maxZ="_SIZE_ pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
+                        <materialMixFamily type="MaterialMixFamily">
+                            <SelectDustMixFamily>
+                                <dustMixes type="DustMix">
+                                    <WeingartnerDraineDustMix environment="MilkyWay" numSilicateSizes="5" numGraphiteSizes="5" numPAHSizes="5"/>
+                                </dustMixes>
+                            </SelectDustMixFamily>
+                        </materialMixFamily>
+                    </VoronoiMeshMedium>
+                </media>
+                <grid type="SpatialGrid">
+                    <VoronoiMeshSpatialGrid minX="-_SIZE_ pc" maxX="_SIZE_ pc" minY="-_SIZE_ pc" maxY="_SIZE_ pc" minZ="-_SIZE_ pc" maxZ="_SIZE_ pc" policy="ImportedMesh" numSites="_NUMCELLS_" filename="" relaxSites="false"/>
+                </grid>
+            </MediumSystem>
+        </mediumSystem>
+        <instrumentSystem type="InstrumentSystem">
+            <InstrumentSystem>
+                <defaultWavelengthGrid type="WavelengthGrid">
+                    <FileWavelengthGrid filename="_FILENAME_WAVELENGTHS_" relativeHalfWidth="0"/>
+                </defaultWavelengthGrid>
+                <instruments type="Instrument">
+                    <FullInstrument instrumentName="_INSTRUMENT_NAME_" distance="10 Mpc" inclination="_INCLINATION_ deg" azimuth="_AZIMUTH_ deg" roll="0 deg" fieldOfViewX="_FOVSIZE_ pc" numPixelsX="_PIXELNUM_" centerX="0 pc" fieldOfViewY="_FOVSIZE_ pc" numPixelsY="_PIXELNUM_" centerY="0 pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false">
+                        <wavelengthGrid type="WavelengthGrid">
+                            <FileWavelengthGrid filename="_FILENAME_WAVELENGTHS_" relativeHalfWidth="0"/>
+                        </wavelengthGrid>
+                    </FullInstrument>
+                </instruments>
+            </InstrumentSystem>
+        </instrumentSystem>
+        <probeSystem type="ProbeSystem">
+            <ProbeSystem/>
+        </probeSystem>
+    </MonteCarloSimulation>
+</skirt-simulation-hierarchy>
