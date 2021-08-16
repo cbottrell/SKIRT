@@ -67,7 +67,6 @@ def apply_filter(data_cube,wavelengths,filter_data,redshift=0.0,airmass=0.):
 
     return f_sb
 
-
 def photometry(cube_dir,snap,sub,cam,sim_tag,skirt_path,sim_path,out_path,
                filters=['CFHT_MegaCam.u','CFHT_MegaCam.r',
                         'Subaru_HSC.g','Subaru_HSC.r','Subaru_HSC.i','Subaru_HSC.z','Subaru_HSC.Y',
@@ -133,15 +132,16 @@ def create_wl_grid(filename='Wavelength_Grid.dat'):
     wl = np.append(wl,np.linspace(1.,5.,21)[1:])
     np.savetxt(filename,wl,header=str(len(wl)),comments='')
     
-    
 def nn_dist(args):
     smoothlength,point,tree = args
     return tree.query(point,k=smoothlength)[0][-1]
 
-
 def prepare_skirt(snap,sub,sim_path,tmp_path,
-                  pixelsize=100.,fovsize_hmr=15.,
-                  smoothlength=32,fof_factor=3):
+                  pixelsize=100.,fovsize_hmr=2.,
+                  smoothlength=32,fof_factor=np.sqrt(2),
+                  fov_min_pc=5e4,fov_max_pc=5e5,
+                  nsources_min=1e5,nsources_max=1e7,
+                  correct_pdrs=True):
     '''
     pixel_size: output pixel size in [pc]
     fov_hmr: size of fov in stellar half mass radius units
@@ -158,8 +158,11 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
     group_idx = sub_cat['SubhaloGrNr']
     centerGal = sub_cat['SubhaloPos']
     
-    fovsize_ckpch = fovsize_hmr*sub_cat["SubhaloHalfmassRadType"][4] # ckpc/h
+    # use DM half-mass radius
+    fovsize_ckpch = fovsize_hmr*sub_cat["SubhaloHalfmassRadType"][1] # ckpc/h
     fovsize = it.convertlength(fovsize_ckpch)*a2*1000 # pc
+    fovsize = max(fovsize,fov_min_pc) # set minimum fov to 100 pkpc
+    fovsize = min(fovsize,fov_max_pc) # set maximum fov to 1 pMpc
     npix = np.ceil(fovsize/pixelsize).astype(int)
 
     if fovsize == 0:
@@ -186,7 +189,7 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         #ignore all wind particles 
         star_idx = stars['GFM_StellarFormationTime'] > 0
         #include only particles within certain distance of target galaxy
-        star_idx *= np.prod(np.abs(coords-cntr)<=fovsize*fof_factor,axis=1,dtype=bool)
+        star_idx *= np.prod(np.abs(coords-cntr)<=fovsize*fof_factor/2,axis=1,dtype=bool)
         #coords of fof stars within fovsize*fof_factor from SubhaloPos
         coords = coords[star_idx]-cntr
 
@@ -222,6 +225,9 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
             t = it.age(stars["GFM_StellarFormationTime"][star_idx],a2)
         #parameters for all stars
         total_stars = np.column_stack((coords,h,M,Z,t))
+        nsources = total_stars.size
+        nsources = max(nsources,nsources_min)
+        nsources = min(nsources,nsources_max)
 
         ### Old stars ####
         age_idx = t>1e7 #only consider stars older than 10Myr for bruzual charlot spectra
@@ -241,16 +247,19 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         young_stars = np.column_stack((coords[age_idx],h[age_idx],
                                        SFRm,Z[age_idx],logC,pISM,fPDR))
         np.savetxt(f'{tmp_path}/{f_mappings}',young_stars,delimiter = " ")
-        del total_stars
+        del total_stars,young_stars
     else:
-        #load young star properties for gas/dust calculations
-        young_stars = np.loadtxt(f'{tmp_path}/{f_mappings}')
+        nsources = np.loadtxt(f'{tmp_path}/{f_stars}').size
+        nsources+= np.loadtxt(f'{tmp_path}/{f_mappings}').size
+        nsources = max(nsources,nsources_min)
+        nsources = min(nsources,nsources_max)
 
     #############
     #### Gas ####
     #############
     if not os.access(f'{tmp_path}/{f_gas}',0):
-        fields = ["Coordinates","Density","GFM_Metallicity","InternalEnergy","ElectronAbundance","StarFormationRate","Masses"]
+        fields = ["Coordinates","Density","GFM_Metallicity","InternalEnergy",
+                  "ElectronAbundance","StarFormationRate","Masses"]
         #load gas particles
         gas = il.snapshot.loadHalo(sim_path,snap,group_idx,0,fields)
         # allow possibility of no gas
@@ -273,23 +282,29 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
             SFRg = gas["StarFormationRate"][gas_idx]
             #metal mass of each gas cells
             metal_mass = Zg*it.convertmass(gas["Masses"][gas_idx])
-            #Correct for double accounting of dust in PDR regions
-            #Calculate mass of metals in the PDR and take this from the stellar particles within the smoothing length
-            for young_star in young_stars:
-                #assume metallicity of star equals metallicity of parent PDR
-                #factor of 10 assumes Mpdr = 10 x Mstar
-                metal_mass_PDR = 10 * young_star[5] * young_star[4]*1e7                  
-                metal_mass_excess, n_grow = -1, 1.
-                #grow N until the enclosed dust mass in h*N exceeds PDR mass
-                while metal_mass_excess < 0:
-                    loc_idx = ( np.sum((coords-young_star[:3])**2,axis=1) < (n_grow*young_star[3])**2 )
-                    #Metal mass in the gas cells within that smoothing length
-                    loc_metal_mass = np.sum(metal_mass[loc_idx])
-                    #Metal mass left over in the gas cells after subtracting pdr contribution
-                    metal_mass_excess = loc_metal_mass - metal_mass_PDR
-                    n_grow *= 2.
-                norm = loc_metal_mass/metal_mass_excess
-                Zg[loc_idx] = Zg[loc_idx]/norm
+            
+            if correct_pdrs:
+                #load young star properties for gas/dust calculations
+                young_stars = np.loadtxt(f'{tmp_path}/{f_mappings}')
+                #Correct for double accounting of dust in PDR regions
+                #Calculate mass of metals in the PDR and take this from the stellar particles within the smoothing length
+                for young_star in young_stars:
+                    #assume metallicity of star equals metallicity of parent PDR
+                    #factor of 10 assumes Mpdr = 10 x Mstar
+                    metal_mass_PDR = 10 * young_star[5] * young_star[4]*1e7                  
+                    metal_mass_excess, n_grow = -1, 1.
+                    #grow N until the enclosed dust mass in h*N exceeds PDR mass
+                    while metal_mass_excess < 0:
+                        loc_idx = ( np.sum((coords-young_star[:3])**2,axis=1) < (n_grow*young_star[3])**2 )
+                        #Metal mass in the gas cells within that smoothing length
+                        loc_metal_mass = np.sum(metal_mass[loc_idx])
+                        #Metal mass left over in the gas cells after subtracting pdr contribution
+                        metal_mass_excess = loc_metal_mass - metal_mass_PDR
+                        n_grow *= 2.
+                    norm = loc_metal_mass/metal_mass_excess
+                    Zg[loc_idx] = Zg[loc_idx]/norm
+                del young_stars
+                
             #Calculate the dust abunndance
             #Set density to zero where Temperature is above threshold value and where there is no SFR
             #Dust properties
@@ -307,9 +322,8 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
     else:
         total_gas = np.loadtxt(f'{tmp_path}/{f_gas}')
     ncells = len(total_gas)
-    del total_gas,young_stars
-    return fovsize,npix,ncells,f_stars,f_mappings,f_gas
-
+    del total_gas
+    return fovsize,npix,ncells,nsources,f_stars,f_mappings,f_gas
 
 def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path):
     '''
@@ -320,7 +334,7 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path):
     Paths default to working directory if not specified.
     '''
     
-    fovsize,npix,ncells,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path)
+    fovsize,npix,ncells,nsources,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
     
     snap,sub = int(snap),int(sub)
     if ncells==0:
@@ -369,13 +383,13 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path):
     filedata = re.sub('_INSTRUMENT_NAME_',cam,filedata)
     filedata = re.sub('_INCLINATION_',str(incl),filedata)
     filedata = re.sub('_AZIMUTH_',str(azim),filedata)
+    filedata = re.sub('_NUMPACKAGES_',str(nsources),filedata)
 
     with open(ski_out, 'w') as f:
         f.write(filedata)
 
     os.system(f'mpirun -n {nprocesses} skirt -t {nthreads} {ski_out}')
-        
-        
+         
 def spectroscopy(cube_dir,snap,sub,cam,sim_tag,out_path):
     return
 
@@ -389,9 +403,9 @@ def prepare_only(args):
     # base path of output directory
     project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
     # photometry path
-    phot_path = f'{project_path}/{sim_tag}/postprocessing/Photometry/{snap:03}'
+    phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
     # spectroscopy path
-    spec_path = f'{project_path}/{sim_tag}/postprocessing/Spectroscopy/{snap:03}'
+    spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
     
     subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     sub = subs[sub_idx]
@@ -408,7 +422,7 @@ def prepare_only(args):
         os.system(f'mkdir -p {tmp_path}')
     os.chdir(tmp_path)
     
-    fovsize,npix,ncells,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path)
+    fovsize,npix,ncells,nsources,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
     
 def run_only(args):
     
@@ -420,9 +434,9 @@ def run_only(args):
     # base path of output directory
     project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
     # photometry path
-    phot_path = f'{project_path}/{sim_tag}/postprocessing/Photometry/{snap:03}'
+    phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
     # spectroscopy path
-    spec_path = f'{project_path}/{sim_tag}/postprocessing/Spectroscopy/{snap:03}'
+    spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
     
     subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     sub = subs[sub_idx]
