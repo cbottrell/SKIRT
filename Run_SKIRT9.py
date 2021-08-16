@@ -96,7 +96,7 @@ def photometry(cube_dir,snap,sub,cam,sim_tag,skirt_path,sim_path,out_path,
         # image spectral flux density in [W/m2/micron/arcsec2]
         data_cube = hdul[0].data
     
-    wavelengths = np.loadtxt(f'{skirt_path}/Wavelength_Grid.dat',skiprows=1).astype(float)
+    wavelengths = np.loadtxt(f'{skirt_path}/SKIRT9_Wavelength_Grid.dat',skiprows=0).astype(float)
     
     hdul = fits.HDUList()
     for i,filter_name in enumerate(filters):
@@ -138,11 +138,34 @@ def nn_dist(args):
     smoothlength,point,tree = args
     return tree.query(point,k=smoothlength)[0][-1]
 
+def RR2014_dust_density(rho_gas,Z_gas,T_gas,SFR_gas,T_thresh=75000,SFR_thresh=0.):
+    '''
+    Compute gas-to-dust density fraction for gas cells following Remy-Ruyer+2014 
+    empirical calibrations (Figure 4 and Table 1). Use broken power law relation 
+    with X_CO,Z (column 3 in Table 1). Use gas-to-dust density fraction and gas 
+    density to obtain dust density, rho_dust.
+    
+    Assume log(Zcell/Zsun) = logOH_cell - logOH_sun and use 12+logOH_sun = 8.69
+    => log(Zcell/Zsun) = 12 + logOH_cell - ( 12 + logOH_sun ) = 12 + logOH_cell - 8.69
+    => logOHp12_cell is defined as 12 + logOH_cell = log(Zcell/Zsun) + 8.69 = log(Z_gas/0.014) + 8.69
+    '''
+    logOHp12_cell = np.log10(Z_gas/0.014) + 8.69
+    # Remy-Ruyer+2014 Table 1 X_CO,Z broken power law (higher, H: 12+logOH>=8.1)
+    logGtD = 2.21 + 1.00 * (8.69 - logOHp12_cell)
+    # Remy-Ruyer+2014 Table 1 X_CO,Z broken power law (lower, L: 12+logOH<8.1)
+    lower_mask = logOHp12_cell<8.1
+    logGtD[lower_mask] = 0.96 + 3.10 * (8.69 - logOHp12_cell[lower_mask])
+    rho_dust = 10**(-logGtD)*rho_gas
+    # set density to zero for above/below temperature and sfr thresholds
+    rho_dust[((T_gas>T_thresh) & (SFR_gas<=SFR_thresh))] = 0.
+    rho_dust[np.isnan(rho_dust)]=0.
+    return rho_dust
+
 def prepare_skirt(snap,sub,sim_path,tmp_path,
                   pixelsize=100.,fovsize_hmr=2.,
                   smoothlength=32,fof_factor=np.sqrt(2),
                   fov_min_pc=5e4,fov_max_pc=5e5,
-                  nsources_min=1e5,nsources_max=1e6,
+                  nsources_min=1e6,nsources_max=1e7,
                   correct_pdrs=True):
     '''
     pixel_size: output pixel size in [pc]
@@ -244,7 +267,7 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         #for ISM pressure, take typical value log(P/kB / cm^-3K) = 5, P = 1.38e-12 N/m2
         pISM = np.full(len(SFRm),1.38e-12)
         #for PDR covering fraction, take f = 0.2
-        fPDR = np.full(len(SFRm),0.2)
+        fPDR = np.full(len(SFRm),0.)
         #create 2D-array and write into data file
         young_stars = np.column_stack((coords[age_idx],h[age_idx],
                                        SFRm,Z[age_idx],logC,pISM,fPDR))
@@ -307,19 +330,13 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
                     Zg[loc_idx] = Zg[loc_idx]/norm
                 del young_stars
                 
-            #Calculate the dust abunndance
-            #Set density to zero where Temperature is above threshold value and where there is no SFR
-            #Dust properties
-            Tthreshold = 75000 #define temperature threshold for dust formation
-            Zg[((T > Tthreshold) & (SFRg == 0))] = 0.0
-            DTM = it.DTM(Zg/0.014) #gas phase metallicity in solar units
-            dustAbundance = Zg * DTM 
-            # set lower bound for dust abundance
-            dustAbundance[np.isnan(dustAbundance)]=1e-15
+            #Calculate the dust density
+            rho_dust = RR2014_dust_density(rhog,Zg,T,SFRg)
+
         else:
-            coords,rhog,dustAbundance = np.array([[],[],[]]).T,[],[]
+            coords,rho_dust= np.array([[],[],[]]).T,[]
         #create 2D-array and write into data file
-        total_gas = np.column_stack((coords,rhog,dustAbundance))
+        total_gas = np.column_stack((coords,rho_dust))
         np.savetxt(f'{tmp_path}/{f_gas}',total_gas,delimiter = " ")
         ncells = len(total_gas)
         del total_gas
@@ -341,9 +358,9 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path):
     
     snap,sub = int(snap),int(sub)
     if ncells==0:
-        ski_in = f'{skirt_path}/shalo-no_dust.ski'
+        ski_in = f'{skirt_path}/shalo_skirt9-no_dust.ski'
     else:
-        ski_in = f'{skirt_path}/shalo.ski'
+        ski_in = f'{skirt_path}/shalo_skirt9.ski'
 
     if not os.access(tmp_path,0):
         os.system(f'mkdir -p {tmp_path}')
@@ -352,8 +369,11 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path):
     # prepare skirt output and place in tmpdir
     ski_out = f'shalo_{snap:03d}-{sub}.ski'
     
-    f_wavelengths = 'Wavelength_Grid.dat'
+    f_wavelengths = 'SKIRT9_Wavelength_Grid.dat'
     os.system(f'cp {skirt_path}/{f_wavelengths} {tmp_path}/{f_wavelengths}')
+    nels = np.loadtxt(f'{tmp_path}/{f_wavelengths}').size
+    # launch nsources*nels photon packets (recommended for SKIRT9)
+    nsources*=nels
     
     cams = np.array(['v0','v1','v2','v3'])
     incls = [109.5,109.5,109.5,0.]
@@ -479,21 +499,4 @@ def run_only(args):
         
 if __name__=='__main__':
     
-    args = sys.argv
-    snap,sub,cam = int(args[1]),int(args[2]),args[3]
-    sim_tag = 'TNG50-1'
-    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
-    tmp_path = f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
-    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
-    skirt_path = f'{project_path}/Scripts/SKIRT'
-    phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
-    
-    # working directory for job
-    if not os.access(tmp_path,0):
-        os.system(f'mkdir -p {tmp_path}')
-    os.chdir(tmp_path)
-    
-    run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path)
-    
-    photometry(cube_dir=tmp_path,snap=snap,sub=sub,cam=cam,sim_tag=sim_tag,
-               skirt_path=skirt_path,sim_path=sim_path,out_path=phot_path)
+    run_only(sys.argv)
