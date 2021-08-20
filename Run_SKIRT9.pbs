@@ -2,14 +2,14 @@
 #PBS -N Run_SKIRT
 #PBS -o /home/connor.bottrell/Scratch/pbs
 #PBS -e /home/connor.bottrell/Scratch/pbs
-#PBS -l select=1:ncpus=50:mem=1500gb
-#PBS -l walltime=24:00:00
-#PBS -J 2900-3300:1
+#PBS -l select=1:ncpus=50:mem=320gb
+#PBS -l walltime=96:00:00
+#PBS -J 100-1000:1
 #PBS -u bottrell
 #PBS -M connor.bottrell@ipmu.jp
 #PBS -m ae
 #PBS -V
-#PBS -q large
+#PBS -q small
 
 source $HOME/venv/tf38_cpu/bin/activate
 export SKIRT_NTASKS=5
