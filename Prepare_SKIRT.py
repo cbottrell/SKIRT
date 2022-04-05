@@ -1,5 +1,5 @@
 import sys
-from Run_SKIRT9 import prepare_only
+from Run_SKIRT9_Bands import prepare_only
 
 if __name__=='__main__':
     

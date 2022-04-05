@@ -502,7 +502,7 @@ if __name__=='__main__':
     snap,sub,cam = int(args[1]),int(args[2]),args[3]
     sim_tag = 'TNG50-1'
     sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
-    tmp_path = f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
+    tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
     project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
     skirt_path = f'{project_path}/Scripts/SKIRT'
     phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'

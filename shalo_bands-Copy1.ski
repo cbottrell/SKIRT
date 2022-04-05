@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A SKIRT parameter file © Astronomical Observatory, Ghent University -->
+<skirt-simulation-hierarchy type="MonteCarloSimulation" format="9" producer="SKIRT v9.0 (git bdfa9c6 built on 17/08/2021 at 02:19:31)" time="2021-08-21T05:00:51.872">
+    <MonteCarloSimulation userLevel="Regular" simulationMode="ExtinctionOnly" numPackets="_NUMPACKAGES_">
+        <random type="Random">
+            <Random seed="12345"/>
+        </random>
+        <units type="Units">
+            <ExtragalacticUnits fluxOutputStyle="Wavelength"/>
+        </units>
+        <cosmology type="Cosmology">
+            <FlatUniverseCosmology redshift="_REDSHIFT_" reducedHubbleConstant="_LITTLEH_" matterDensityFraction="_OMEGAM_"/>
+        </cosmology>
+        <sourceSystem type="SourceSystem">
+            <SourceSystem minWavelength="_WLMIN_ micron" maxWavelength="_WLMAX_ micron" wavelengths="_WLPROBE_ micron" sourceBias="0.5">
+                <sources type="Source">
+                    <ParticleSource filename="_FILENAME_STARS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                        <smoothingKernel type="SmoothingKernel">
+                            <CubicSplineSmoothingKernel/>
+                        </smoothingKernel>
+                        <sedFamily type="SEDFamily">
+                            <BruzualCharlotSEDFamily imf="Chabrier" resolution="High"/>
+                        </sedFamily>
+                        <wavelengthBiasDistribution type="WavelengthDistribution">
+                            <LogWavelengthDistribution minWavelength="_WLMIN_ micron" maxWavelength="_WLMAX_ micron"/>
+                        </wavelengthBiasDistribution>
+                    </ParticleSource>
+                    <ParticleSource filename="_FILENAME_MAPPINGS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                        <smoothingKernel type="SmoothingKernel">
+                            <CubicSplineSmoothingKernel/>
+                        </smoothingKernel>
+                        <sedFamily type="SEDFamily">
+                            <MappingsSEDFamily/>
+                        </sedFamily>
+                        <wavelengthBiasDistribution type="WavelengthDistribution">
+                            <LogWavelengthDistribution minWavelength="_WLMIN_ micron" maxWavelength="_WLMAX_ micron"/>
+                        </wavelengthBiasDistribution>
+                    </ParticleSource>
+                </sources>
+            </SourceSystem>
+        </sourceSystem>
+        <mediumSystem type="MediumSystem">
+            <MediumSystem numDensitySamples="100">
+                <photonPacketOptions type="PhotonPacketOptions">
+                    <PhotonPacketOptions forceScattering="true" minWeightReduction="1e4" minScattEvents="0" pathLengthBias="0.5"/>
+                </photonPacketOptions>
+                <extinctionOnlyOptions type="ExtinctionOnlyOptions">
+                    <ExtinctionOnlyOptions storeRadiationField="false"/>
+                </extinctionOnlyOptions>
+                <media type="Medium">
+                    <VoronoiMeshMedium filename="_FILENAME_GAS_" minX="-_SIZE_ pc" maxX="_SIZE_ pc" minY="-_SIZE_ pc" maxY="_SIZE_ pc" minZ="-_SIZE_ pc" maxZ="_SIZE_ pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
+                        <materialMix type="MaterialMix">
+                            <WeingartnerDraineDustMix environment="MilkyWay" numSilicateSizes="5" numGraphiteSizes="5" numPAHSizes="5"/>
+                        </materialMix>
+                    </VoronoiMeshMedium>
+                </media>
+                <grid type="SpatialGrid">
+                    <VoronoiMeshSpatialGrid minX="-_SIZE_ pc" maxX="_SIZE_ pc" minY="-_SIZE_ pc" maxY="_SIZE_ pc" minZ="-_SIZE_ pc" maxZ="_SIZE_ pc" policy="ImportedMesh" numSites="500" filename="" relaxSites="false"/>
+                </grid>
+            </MediumSystem>
+        </mediumSystem>
+        <instrumentSystem type="InstrumentSystem">
+            <InstrumentSystem>
+                <defaultWavelengthGrid type="WavelengthGrid">
+                    <ConfigurableBandWavelengthGrid>
+                        <bands type="Band">
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/CFHT_MegaCam.u.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Subaru_HSC.g.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Subaru_HSC.r.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Subaru_HSC.i.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Subaru_HSC.z.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Subaru_HSC.Y.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/UKIRT_UKIDSS.J.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/UKIRT_UKIDSS.H.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/UKIRT_UKIDSS.K.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Spitzer_IRAC.I1.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Spitzer_IRAC.I2.dat"/>
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Spitzer_IRAC.I3.dat"/>  
+                            <FileBand filename="/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT/Photometry/SKIRT9/Filters/Spitzer_IRAC.I4.dat"/>                              
+                        </bands>
+                    </ConfigurableBandWavelengthGrid>
+                </defaultWavelengthGrid>
+                <instruments type="Instrument">
+                    <FrameInstrument instrumentName="_INSTRUMENT_NAME_" distance="_DISTANCE_ Mpc" inclination="_INCLINATION_ deg" azimuth="_AZIMUTH_ deg" roll="0 deg" fieldOfViewX="_FOVSIZE_ pc" numPixelsX="_PIXELNUM_" centerX="0 pc" fieldOfViewY="_FOVSIZE_ pc" numPixelsY="_PIXELNUM_" centerY="0 pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false"/>
+                </instruments>
+            </InstrumentSystem>
+        </instrumentSystem>
+        <probeSystem type="ProbeSystem">
+            <ProbeSystem>
+                <probes type="Probe">
+                    <SpatialGridConvergenceProbe probeName="sgc_probe" wavelength="_WLPROBE_ micron"/>
+                </probes>
+            </ProbeSystem>
+        </probeSystem>
+    </MonteCarloSimulation>
+</skirt-simulation-hierarchy>

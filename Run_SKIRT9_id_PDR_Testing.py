@@ -165,7 +165,7 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
                   pixelsize=100.,fovsize_hmr=2.,
                   smoothlength=32,fof_factor=np.sqrt(2),
                   fov_min_pc=5e4,fov_max_pc=5e5,
-                  nsources_min=1e6,nsources_max=1e7,
+                  nsources_min=1e4,nsources_max=1e5,
                   correct_pdrs=True):
     '''
     pixel_size: output pixel size in [pc]

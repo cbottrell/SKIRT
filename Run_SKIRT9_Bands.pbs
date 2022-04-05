@@ -4,12 +4,12 @@
 #PBS -e /home/connor.bottrell/Scratch/pbs
 #PBS -l select=1:ncpus=52:mem=360gb
 #PBS -l walltime=96:00:00
-#PBS -J 1000-3200:1
+#PBS -J 0-3200:1
 #PBS -u bottrell
 #PBS -M connor.bottrell@ipmu.jp
 #PBS -m ae
 #PBS -V
-#PBS -q mini2
+#PBS -q mini
 
 source ~/.bash_profile
 conda activate tf39_cpu
