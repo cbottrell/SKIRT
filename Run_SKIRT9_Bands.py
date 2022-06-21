@@ -303,14 +303,24 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
     # order bandpasses by pivot wl (skirt output default) and write to .ski
     band_dir = f'{skirt_path}/Photometry/SKIRT9/Filters'
     wl_pivot = []
+    wl_band_min = 1e99
+    wl_band_max = -1e99
     for band in copy.copy(bands):
         wl_band,transmission = np.loadtxt(f'{band_dir}/{band}.dat',unpack=True)
-        if (wl_max*(1+redshift) < wl_band[-1]) or (wl_min*(1+redshift) > wl_band[0]):
+        if (wl_max*(1+redshift) < np.max(wl_band)) or (wl_min*(1+redshift) > np.min(wl_band)):
             # band is removed if it source spectrum does not cover its entire range
             bands.remove(band)
         else:
-            # band stays and its pivot wavelenght is computed and appended
+            # band stays and its pivot wavelength is computed and appended
             wl_pivot.append(np.sqrt(np.trapz(transmission,wl_band)/np.trapz(transmission/wl_band**2,wl_band)))
+            # get min and max over all kept bands to update emission range [wl_min,wl_max]
+            wl_band_min = np.minimum(np.min(wl_band),wl_band_min)
+            wl_band_max = np.maximum(np.max(wl_band),wl_band_max)
+    
+    # update wavelength range to band limits
+    wl_min = np.minimum(wl_band_min,wl_min)
+    wl_max = np.maximum(wl_band_max,wl_max)
+
     sort_idx = np.argsort(wl_pivot)
     bands = np.array(bands)[sort_idx]
     bandtxt = ''.join([' '*28+f'<FileBand filename="{band_dir}/{band}.dat"/>\n' for band in bands])
