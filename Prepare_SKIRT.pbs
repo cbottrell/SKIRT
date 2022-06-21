@@ -13,7 +13,7 @@
 
 source ~/.bash_profile
 conda activate tf39_cpu
-export SNAP=59
+export SNAP=91
 
 cd /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT
 
