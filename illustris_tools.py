@@ -7,8 +7,6 @@ import scipy.integrate as integrate
 import astropy as ap
 from astropy.cosmology import Planck15 as cosmo
 
-
-
 #convert units, depending on the input units
 def convertmass(x):
     a = x * 1e10/(cosmo.H0.value/100)
@@ -21,7 +19,6 @@ def convertlength(x):
 def convertdensity(x):
     a = x * 1e10 * (cosmo.H0.value/100)**2
     return a
-
 
 #calculate age in years from cosmology using astropy, a1 is array of birth scale factors, a2 is scale factor today
 def age(a1,a2):
@@ -37,22 +34,29 @@ def temp(u,xe):
     return T
 
 #make periodic fix, which returns fixed alues, and boolean, true if the data was fixed, false if not                                                              
-#This is hard coded for TNG50
-def periodicfix(x,center,boxsize = 35000):    
-    if (np.min(x) < boxsize/10) & (np.max(x) > boxsize - boxsize/10):
-        x = x + boxsize/2
-        for j in range(3):
-            for i in range(len(x)):
-                if x[i,j] > boxsize:
-                    x[i,j] = x[i,j]- boxsize
-        x = x - boxsize/2
+# #This is hard coded for TNG50
+# def periodicfix(x,center,boxsize = 35000):    
+#     if (np.min(x) < boxsize/10) & (np.max(x) > boxsize - boxsize/10):
+#         x = x + boxsize/2
+#         for j in range(3):
+#             for i in range(len(x)):
+#                 if x[i,j] > boxsize:
+#                     x[i,j] = x[i,j]- boxsize
+#         x = x - boxsize/2
 
-        center = center + boxsize/2
-        for i in range(3):
-            if center[i] > boxsize:
-                center[i] = center[i] - boxsize
-        center = center - boxsize/2
-    return(x,center)
+#         center = center + boxsize/2
+#         for i in range(3):
+#             if center[i] > boxsize:
+#                 center[i] = center[i] - boxsize
+#         center = center - boxsize/2
+#     return(x,center)
+
+def periodicfix(coords,center,boxSize):
+    '''Periodic coordinate [coords] fix relative to some point of origin [center] for a box of size [boxSize]. New coordinate system origin is [center].'''
+    rel_coords = coords-center
+    rel_coords[rel_coords>boxSize/2] -= boxSize
+    rel_coords[rel_coords<-boxSize/2] += boxSize
+    return rel_coords
 
 
 def getCentreOfVelocity(vel,mass):
@@ -69,14 +73,12 @@ def DTM(Zc):
     Return the dust fracion of the all metals (Mdust / (Mdust + Mmetal)
     Based on Remy-Ruyer 2014, variable XCO
     """
-    
     logOH  = np.log10(Zc)  + 8.69
     logGTD = 2.21 + (8.69 - logOH)
     logGTD[logOH < 8.1] = 0.96 + 3.1 * (8.69 - logOH[logOH < 8.1])
     GTD = 10**logGTD
     DTG = 1./GTD
     DTM = DTG / (Zc * 0.014)
-
     #Convert to density fraction rather than Mdust/Mmetal
     DTM = DTM/(1. + DTM)
     return DTM

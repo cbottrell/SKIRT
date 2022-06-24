@@ -40,13 +40,16 @@
             </SourceSystem>
         </sourceSystem>
         <mediumSystem type="MediumSystem">
-            <MediumSystem numDensitySamples="100">
+            <MediumSystem>
+                <samplingOptions type="SamplingOptions">
+                    <SamplingOptions numDensitySamples="100"/>
+                </samplingOptions>
+                <radiationFieldOptions type="RadiationFieldOptions">
+                    <RadiationFieldOptions storeRadiationField="false"/>
+                </radiationFieldOptions>
                 <photonPacketOptions type="PhotonPacketOptions">
                     <PhotonPacketOptions forceScattering="true" minWeightReduction="1e4" minScattEvents="0" pathLengthBias="0.5"/>
                 </photonPacketOptions>
-                <extinctionOnlyOptions type="ExtinctionOnlyOptions">
-                    <ExtinctionOnlyOptions storeRadiationField="false"/>
-                </extinctionOnlyOptions>
                 <media type="Medium">
                     <VoronoiMeshMedium filename="_FILENAME_GAS_" minX="-_SIZE_ pc" maxX="_SIZE_ pc" minY="-_SIZE_ pc" maxY="_SIZE_ pc" minZ="-_SIZE_ pc" maxZ="_SIZE_ pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
                         <materialMix type="MaterialMix">
@@ -76,7 +79,7 @@ _BANDTEXT_
         <probeSystem type="ProbeSystem">
             <ProbeSystem>
                 <probes type="Probe">
-                    <SpatialGridConvergenceProbe probeName="sgc_probe" wavelength="_WLPROBE_ micron"/>
+                    <ConvergenceInfoProbe probeName="sgc_probe" wavelength="_WLPROBE_ micron"/>
                 </probes>
             </ProbeSystem>
         </probeSystem>

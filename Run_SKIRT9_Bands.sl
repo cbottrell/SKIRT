@@ -1,10 +1,10 @@
 #!/bin/bash -l 
 #SBATCH --job-name=run_skirt
 #SBATCH --time=24:00:00
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=36
+#SBATCH --ntasks=4
+#SBATCH --cpus-per-task=9
 #SBATCH --mem=240GB
-#SBATCH --array=100-101
+#SBATCH --array=0-99,102-299
 #SBATCH --partition=p.large
 #SBATCH --mail-type=END
 #SBATCH --error='/u/bconn/Scratch/%x-%A_%a.err' 
@@ -22,8 +22,8 @@ export SNAP=91
 export JOB_ARRAY_SIZE=300
 export JOB_ARRAY_INDEX=$SLURM_ARRAY_TASK_ID
 
-export SKIRT_NTASKS=4
-export SKIRT_CPUS_PER_TASK=9
+export SKIRT_NTASKS=$SLURM_NTASKS
+export SKIRT_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 cd /u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT

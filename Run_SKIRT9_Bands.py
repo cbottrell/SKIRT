@@ -41,19 +41,19 @@ def nn_dist(args):
     smoothlength,point,tree = args
     return tree.query(point,k=smoothlength)[0][-1]
 
+def cosmo_age(redshift):
+    '''Return age as value in Gyr (for multiprocessing)'''
+    return cosmo.age(redshift).value
+
 def RR2014_dust_density(rho_gas,Z_gas,T_gas,SFR_gas,T_thresh=75000,SFR_thresh=0.):
     '''
-    Compute gas-to-dust density fraction for gas cells following Remy-Ruyer+2014 
-    empirical calibrations (Figure 4 and Table 1). Use broken power law relation 
-    with X_CO,Z (column 3 in Table 1). Use gas-to-dust density fraction and gas 
-    density to obtain dust density, rho_dust.
+    Compute gas-to-dust density fraction for gas cells following Remy-Ruyer+2014 empirical calibrations (Figure 4 and Table 1). Use broken power law relation with X_CO,Z (column 3 in Table 1). Use gas-to-dust density fraction and gas density to obtain dust density, rho_dust.
     
-    Assume log(Zcell/Zsun) = logOH_cell - logOH_sun and use 12+logOH_sun = 8.69
-    => log(Zcell/Zsun) = 12 + logOH_cell - ( 12 + logOH_sun ) = 12 + logOH_cell - 8.69
-    => logOHp12_cell is defined as 12 + logOH_cell = log(Zcell/Zsun) + 8.69 = log(Z_gas/0.014) + 8.69
+    Assume log(Zcell/Zsun) = logOH_cell - logOH_sun and use 12+logOH_sun = 8.69 => log(Zcell/Zsun) = 12 + logOH_cell - ( 12 + logOH_sun ) = 12 + logOH_cell - 8.69 => logOHp12_cell is defined as 12 + logOH_cell = log(Zcell/Zsun) + 8.69 = log(Z_gas/0.014) + 8.69
     '''
     logOHp12_cell = np.log10(Z_gas/0.014) + 8.69
-    # Remy-Ruyer+2014 Table 1 X_CO,Z broken power law (higher, H: 12+logOH>=8.1)
+    # Remy-Ruyer+2014 Table 1 X_CO,Z 
+    # broken power law (higher, H: 12+logOH>=8.1)
     logGtD = 2.21 + 1.00 * (8.69 - logOHp12_cell)
     # Remy-Ruyer+2014 Table 1 X_CO,Z broken power law (lower, L: 12+logOH<8.1)
     lower_mask = logOHp12_cell<8.1
@@ -76,19 +76,22 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
     smooth_length: kernel smoothing length of stellar particles (nn distance)
     fof_factor: factor by which fovsize_hmr is multiplied to determine which FOF halo particles are used
     '''
-
+    environ = os.environ
+    nthreads = int(environ['SKIRT_CPUS_PER_TASK']) if 'SKIRT_CPUS_PER_TASK' in environ else 1
+    
     #load current scale factor
     header = dict(h5py.File(f'{sim_path}/snapdir_{snap:03d}/snap_{snap:03d}.0.hdf5',"r")["Header"].attrs.items())
-    a2 = header["Time"]
-
+    redshift,a2 = header['Redshift'],header['Time']
+    boxSize = header['BoxSize']
+    
     sub_cat = il.groupcat.loadSingle(sim_path,snap,subhaloID=sub)
     # GPM position and parent FOF halo of subhalo
     group_idx = sub_cat['SubhaloGrNr']
     centerGal = sub_cat['SubhaloPos']
     
     # use DM half-mass radius
-    fovsize_ckpch_dm = fovsize_hmr_dm*sub_cat["SubhaloHalfmassRadType"][1] # ckpc/h
-    fovsize_ckpch_stars = fovsize_hmr_stars*sub_cat["SubhaloHalfmassRadType"][4] # ckpc/h
+    fovsize_ckpch_dm = fovsize_hmr_dm * sub_cat["SubhaloHalfmassRadType"][1] # ckpc/h
+    fovsize_ckpch_stars = fovsize_hmr_stars * sub_cat["SubhaloHalfmassRadType"][4] # ckpc/h
     fovsize_ckpch = max(fovsize_ckpch_stars,fovsize_ckpch_dm)
     fovsize = it.convertlength(fovsize_ckpch)*a2*1000 # pc
     fovsize = max(fovsize,fov_min_pc) # set minimum fov to 50 pkpc
@@ -107,52 +110,57 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
     #############
     ### Stars ###
     #############
-    if not (os.access(f'{tmp_path}/{f_stars}',0) or os.access(f'{tmp_path}/{f_mappings}',0)):
-        fields = ["Coordinates","GFM_StellarFormationTime","GFM_InitialMass",
-                  "GFM_Metallicity", "Velocities", "Masses"]
+    if not (os.access(f'{tmp_path}/{f_stars}',0) and os.access(f'{tmp_path}/{f_mappings}',0)):
+        fields = [
+            "Coordinates", "GFM_StellarFormationTime", "GFM_InitialMass",
+            "GFM_Metallicity", "Velocities", "Masses", "StellarHsml"
+        ]
         #load star particles
         stars = il.snapshot.loadHalo(sim_path,snap,group_idx,4,fields)
-        coords,cntr = it.periodicfix(stars['Coordinates'],centerGal) # ckpc/h
+        coords = it.periodicfix(stars['Coordinates'],
+                                centerGal,boxSize) # ckpc/h
         coords = it.convertlength(coords)*a2*1000 # pc
-        cntr = it.convertlength(cntr)*a2*1000 # pc
-
+        
         #ignore all wind particles 
         star_idx = stars['GFM_StellarFormationTime'] > 0
         #include only particles within certain distance of target galaxy
-        star_idx *= np.prod(np.abs(coords-cntr)<=fovsize*fof_factor/2,axis=1,dtype=bool)
+        star_idx *= np.prod(np.abs(coords)<=fovsize*fof_factor/2, axis=1,dtype=bool)
         #coords of fof stars within fovsize*fof_factor from SubhaloPos
-        coords = coords[star_idx]-cntr
+        coords = coords[star_idx]
 
-        #smoothing length in proper pc (distance to smoothlength closest neighbour)
-        #create array with locations
-        #setup KDTree
-        tree = spt.cKDTree(coords,leafsize = 100)
-        environ = os.environ
-        nthreads = int(environ['SKIRT_CPUS_PER_TASK']) if 'SKIRT_CPUS_PER_TASK' in environ else 1
-        if nthreads>1:
-            from multiprocessing import Pool
-            argList = [(smoothlength,point,tree) for point in coords]
-            with Pool(nthreads) as pool:
-                h = np.asarray(pool.map(nn_dist,argList))
+        # use pre-computed smooth lengths if correct
+        if smoothlength==32:
+            h = it.convertlength(stars['StellarHsml'][star_idx])*a2*1000
         else:
-            h = np.zeros(len(coords))
-            for i,point in enumerate(coords):
-                dist = tree.query(point,k=smoothlength)[0][-1]
-                h[i] = dist
-            h = np.asarray(h)
+            #setup KDTree
+            tree = spt.cKDTree(coords,leafsize = 100)
+            if nthreads>1:
+                from multiprocessing import Pool
+                argList = [(smoothlength,point,tree) for point in coords]
+                with Pool(nthreads) as pool:
+                    h = np.asarray(pool.map(nn_dist,argList))
+            else:
+                h = np.zeros(len(coords))
+                for i,point in enumerate(coords):
+                    dist = tree.query(point,k=smoothlength)[0][-1]
+                    h[i] = dist
+                h = np.asarray(h)
 
         #initial mass in solar masses
         M = it.convertmass(stars["GFM_InitialMass"][star_idx])
         #metallicity (actual metallicity, not in solar units)
         Z = stars["GFM_Metallicity"][star_idx]
         #age of the stars in years
+        t2 = cosmo.age(redshift).value # Gyr
+        a1 = stars["GFM_StellarFormationTime"][star_idx]
         if nthreads>1:
             from multiprocessing import Pool
-            argList = [(a1,a2) for a1 in stars["GFM_StellarFormationTime"][star_idx]]
             with Pool(nthreads) as pool:
-                t = np.asarray(pool.starmap(it.age,argList))
+                t1 = np.asarray(pool.map(cosmo_age,(1./a1)-1)) # Gyr
         else:
-            t = it.age(stars["GFM_StellarFormationTime"][star_idx],a2)
+            t1 = cosmo.age((1./a1)-1).value # Gyr
+        t = (t2-t1)*1e9 # age in years
+        
         #parameters for all stars
         total_stars = np.column_stack((coords,h,M,Z,t))
         nsources = total_stars.shape[0]
@@ -194,13 +202,14 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
         gas = il.snapshot.loadHalo(sim_path,snap,group_idx,0,fields)
         # allow possibility of no gas
         if gas["count"] != 0:
-            coords,cntr = it.periodicfix(gas['Coordinates'],centerGal) # ckpc/h
+            coords = it.periodicfix(gas['Coordinates'],
+                                    centerGal,boxSize) # ckpc/h
             coords = it.convertlength(coords)*a2*1000 # pc
-            cntr = it.convertlength(cntr)*a2*1000 # pc
             #include only particles within certain distance of target galaxy
-            gas_idx = np.prod(np.abs(coords-cntr)<=fovsize*fof_factor/2,axis=1,dtype=bool)
+            gas_idx = np.prod(np.abs(coords)<=fovsize*fof_factor/2,
+                              axis=1,dtype=bool)
             # coords of fof gas within fovsize*fof_factor from SubhaloPos
-            coords = coords[gas_idx]-cntr
+            coords = coords[gas_idx]
             # density
             rhog = it.convertdensity(gas["Density"][gas_idx])/((1000*a2)**3)
             #gas particle metallicity (not in solar units)
@@ -252,11 +261,14 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
 
 def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
               wl_min=0.1,wl_max=5,wl_probe=0.55,packet_factor=200,
-              bands = ['CFHT_MegaCam.u','CFHT_MegaCam.r',
-                       'Subaru_HSC.g','Subaru_HSC.r','Subaru_HSC.i','Subaru_HSC.z','Subaru_HSC.Y',
-                       'UKIRT_UKIDSS.J','UKIRT_UKIDSS.H','UKIRT_UKIDSS.K',
-                       'Spitzer_IRAC.I1','Spitzer_IRAC.I2','Spitzer_IRAC.I3','Spitzer_IRAC.I4']
-             ):
+              bands = [
+                  'CFHT_MegaCam.u','CFHT_MegaCam.r',
+                  'Subaru_HSC.g','Subaru_HSC.r','Subaru_HSC.i',
+                  'Subaru_HSC.z','Subaru_HSC.Y',
+                  #'UKIRT_UKIDSS.J','UKIRT_UKIDSS.H','UKIRT_UKIDSS.K',
+                  #'Spitzer_IRAC.I1','Spitzer_IRAC.I2','Spitzer_IRAC.I3',
+                  #'Spitzer_IRAC.I4']
+              ]):
     '''
     sim_path: base path to simulation snapshot data
     tmp_path: working directory for job 
@@ -266,6 +278,7 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
     '''
     
     snap,sub = int(snap),int(sub)
+    environ = os.environ
     
     fovsize,npix,ncells,nsources,fof_factor,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
     
@@ -297,6 +310,7 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
     else:
         nprocesses = 1
         nthreads = 1
+        
     with open(ski_in,'r') as f:
         filedata = f.read()
         
@@ -312,14 +326,14 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
             bands.remove(band)
         else:
             # band stays and its pivot wavelength is computed and appended
-            wl_pivot.append(np.sqrt(np.trapz(transmission,wl_band)/np.trapz(transmission/wl_band**2,wl_band)))
+            wl_pivot.append(np.sqrt(np.trapz(transmission,wl_band) /np.trapz(transmission/wl_band**2,wl_band)))
             # get min and max over all kept bands to update emission range [wl_min,wl_max]
             wl_band_min = np.minimum(np.min(wl_band),wl_band_min)
             wl_band_max = np.maximum(np.max(wl_band),wl_band_max)
     
     # update wavelength range to band limits
-    wl_min = np.minimum(wl_band_min,wl_min)
-    wl_max = np.maximum(wl_band_max,wl_max)
+    wl_min = np.maximum(wl_band_min,wl_min)
+    wl_max = np.minimum(wl_band_max,wl_max)
 
     sort_idx = np.argsort(wl_pivot)
     bands = np.array(bands)[sort_idx]
@@ -351,7 +365,7 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
         
     skirt_total = f'shalo_{snap:03}-{sub}_{cam}_total.fits'
     if not os.access(skirt_total,0):
-        os.system(f'mpirun -n {nprocesses} skirt -t {nthreads} {ski_out}')
+        os.system(f'srun skirt -t {nthreads} {ski_out}')
 
     hdu = fits.open(skirt_total)
     images = hdu[0].data*1e26 # [Jy*Hz/micron/arcsec2]
@@ -403,83 +417,116 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
     
 def prepare_only(args):
     
-    snap,sub_idx = int(args[1]),int(args[2])
-    sim_tag = 'TNG50-1'
-    
-    # base path where TNG data is stored
-    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
-    # base path of output directory
-    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
-    # photometry path
-    phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
-    # spectroscopy path
-    spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
-    
-    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
-    sub = subs[sub_idx]
+    environ = os.environ
+    sim = environ['SIM']
+    snap = int(environ['SNAP'])
+    ntasks = int(environ['JOB_ARRAY_SIZE'])
+    task_idx = int(environ['JOB_ARRAY_INDEX'])
 
-    # Check if output already exists. If so, skip.
-    cams = ['v0','v1','v2','v3']
-    outfiles = glob.glob(f'{phot_path}/shalo_{snap:03}-{sub}_*_photo.fits')
-    if len(outfiles)==len(cams):
-        sys.exit(f'All output images already exist for {sim_tag}-{snap:03}-{sub}.')
+#     # base path where TNG data is stored
+#     sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
+#     # base path of output directory
+#     project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
+#     # photometry path
+#     phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
+#     # spectroscopy path
+#     spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
+
+    # base path where TNG data is stored
+    sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    # base path of output directory
+    project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    # photometry path
+    phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
     
-    # working directory for job
-    tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
-    if not os.access(tmp_path,0):
-        os.system(f'mkdir -p {tmp_path}')
-    os.chdir(tmp_path)
-    
-    fovsize,npix,ncells,nsources,fof_factor,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
+    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=10.5)
+    subs_per_task,rmdr = divmod(len(subs),ntasks)
+    if rmdr > 0: subs_per_task+=1
+    subs = subs[task_idx*subs_per_task:(task_idx+1)*subs_per_task]
+    for sub in subs:
+        # Check if output already exists. If so, skip.
+        cams = ['v0','v1','v2','v3']
+        outfiles = glob.glob(f'{phot_path}/shalo_{snap:03}-{sub}_*_photo.fits')
+        if len(outfiles)==len(cams):
+            sys.exit(f'All output images already exist for {sim}-{snap:03}-{sub}.')
+
+        # working directory for job
+        #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
+        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+        if not os.access(tmp_path,0):
+            os.system(f'mkdir -p {tmp_path}')
+        os.chdir(tmp_path)
+
+        fovsize,npix,ncells,nsources,fof_factor,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
     
 def run_only(args):
     
-    snap,sub_idx = int(args[1]),int(args[2])
-    sim_tag = 'TNG50-1'
+    environ = os.environ
+    sim = environ['SIM']
+    snap = int(environ['SNAP'])
+    ntasks = int(environ['JOB_ARRAY_SIZE'])
+    task_idx = int(environ['JOB_ARRAY_INDEX'])
+    
+    # # base path where TNG data is stored
+    # sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
+    # # base path of output directory
+    # project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
+    # # photometry path
+    # phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
+    # # spectroscopy path
+    # spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
     
     # base path where TNG data is stored
-    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
+    sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
     # base path of output directory
-    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
+    project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
     # photometry path
-    phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
-    # spectroscopy path
-    spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
+    phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
     
-    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
-    sub = subs[sub_idx]
+    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=10.5)
+    subs_per_task,rmdr = divmod(len(subs),ntasks)
+    if rmdr > 0: subs_per_task+=1
+    subs = subs[task_idx*subs_per_task:(task_idx+1)*subs_per_task]
 
     cams = ['v0','v1','v2','v3']
+    
+    for sub in subs:
         
-    # working directory for job
-    tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
-    skirt_path = f'{project_path}/Scripts/SKIRT'
-    
-    f_stars = f'{tmp_path}/shalo_{snap:03d}-{sub}_stars.dat'
-    f_mappings = f'{tmp_path}/shalo_{snap:03d}-{sub}_mappings.dat'
-    f_gas = f'{tmp_path}/shalo_{snap:03d}-{sub}_gas.dat'
-    
-    for skirt_file in [f_stars,f_mappings,f_gas]:
-        if not os.access(skirt_file,0):
-            sys.exit(f'Missing SKIRT input files for {snap:03}-{sub}. Quitting...')
-    
-    for cam in cams:
-        if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
-            run_skirt(snap,sub,cam,sim_tag,
-                     sim_path=sim_path,
-                     tmp_path=tmp_path,
-                     skirt_path=skirt_path,
-                     out_path=phot_path,
-                     packet_factor=100)
+        # working directory for job
+        #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
+        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+        skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
 
-    files_exist = True
-    for cam in cams:
-        if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
-            files_exist=False
+        f_stars = f'{tmp_path}/shalo_{snap:03d}-{sub}_stars.dat'
+        f_mappings = f'{tmp_path}/shalo_{snap:03d}-{sub}_mappings.dat'
+        f_gas = f'{tmp_path}/shalo_{snap:03d}-{sub}_gas.dat'
 
-    # clean up
-    if files_exist:
-        os.system(f'rm -rf {tmp_path}')
+        inputs_ready = True
+        for skirt_file in [f_stars,f_mappings,f_gas]:
+            if not os.access(skirt_file,0):
+                print(f'Missing SKIRT input files for {snap:03}-{sub}. Skipping...')
+                inputs_ready = False
+                
+        if not inputs_ready:
+            continue
+
+        for cam in cams:
+            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
+                run_skirt(snap,sub,cam,sim,
+                         sim_path=sim_path,
+                         tmp_path=tmp_path,
+                         skirt_path=skirt_path,
+                         out_path=phot_path,
+                         packet_factor=100)
+
+        files_exist = True
+        for cam in cams:
+            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
+                files_exist=False
+
+        # clean up
+        if files_exist:
+            os.system(f'rm -rf {tmp_path}')
         
 if __name__=='__main__':
     

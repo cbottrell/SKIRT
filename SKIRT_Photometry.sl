@@ -3,7 +3,7 @@
 #SBATCH --account=rrg-jfncc_cpu
 #SBATCH --time=12:00:00
 #SBATCH --mem-per-cpu=1G
-#SBATCH --ntasks=4
+#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mail-type=END
 #SBATCH --error='/home/bottrell/projects/def-simardl/bottrell/Simulations/IllustrisTNG/Scripts/SLURM/%x-%A_%a.err' 
