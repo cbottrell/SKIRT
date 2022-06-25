@@ -283,6 +283,9 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
     fovsize,npix,ncells,nsources,fof_factor,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
     
     redshift = il.groupcat.loadHeader(sim_path,snap)['Redshift']
+    # convert rest min and max wavelength to filter reference frame
+    wl_min = wl_min * (1+redshift)
+    wl_max = wl_max * (1+redshift)
     little_h = cosmo.H0.value/100
     omega_m = cosmo.Om0
     speed_of_light = 2.998e14 # [micron/s]
@@ -321,7 +324,7 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
     wl_band_max = -1e99
     for band in copy.copy(bands):
         wl_band,transmission = np.loadtxt(f'{band_dir}/{band}.dat',unpack=True)
-        if (wl_max*(1+redshift) < np.max(wl_band)) or (wl_min*(1+redshift) > np.min(wl_band)):
+        if (wl_max < np.max(wl_band)) or (wl_min > np.min(wl_band)):
             # band is removed if it source spectrum does not cover its entire range
             bands.remove(band)
         else:
