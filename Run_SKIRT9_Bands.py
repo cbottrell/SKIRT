@@ -330,13 +330,13 @@ def run_skirt(snap,sub,cam,sim_tag,sim_path,tmp_path,skirt_path,out_path,
         else:
             # band stays and its pivot wavelength is computed and appended
             wl_pivot.append(np.sqrt(np.trapz(transmission,wl_band) /np.trapz(transmission/wl_band**2,wl_band)))
-            # get min and max over all kept bands to update emission range [wl_min,wl_max]
+            # get min and max over all kept bands to update observer-frame emission range [wl_min,wl_max]
             wl_band_min = np.minimum(np.min(wl_band),wl_band_min)
             wl_band_max = np.maximum(np.max(wl_band),wl_band_max)
     
-    # update wavelength range to band limits
-    wl_min = np.maximum(wl_band_min,wl_min)
-    wl_max = np.minimum(wl_band_max,wl_max)
+    # update rest-frame wavelength range to band limits
+    wl_min = np.maximum(wl_band_min,wl_min)/(1+redshift)
+    wl_max = np.minimum(wl_band_max,wl_max)/(1+redshift)
 
     sort_idx = np.argsort(wl_pivot)
     bands = np.array(bands)[sort_idx]
