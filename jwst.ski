@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- A SKIRT parameter file © Astronomical Observatory, Ghent University -->
-<skirt-simulation-hierarchy type="MonteCarloSimulation" format="9" producer="SKIRT v9.0 (git bdfa9c6 built on 17/08/2021 at 02:19:31)" time="2022-06-24T17:47:15.628">
-    <MonteCarloSimulation userLevel="Regular" simulationMode="ExtinctionOnly" numPackets="1e6">
+<skirt-simulation-hierarchy type="MonteCarloSimulation" format="9" producer="SKIRT v9.0 (git ff684b0 built on 28/06/2022 at 19:31:15)" time="2022-06-28T19:58:14.633">
+    <MonteCarloSimulation userLevel="Regular" simulationMode="ExtinctionOnly" iterateMediumState="false" iterateSecondaryEmission="false" numPackets="1e6">
         <random type="Random">
             <Random seed="0"/>
         </random>
         <units type="Units">
-            <ExtragalacticUnits fluxOutputStyle="Wavelength"/>
+            <ExtragalacticUnits wavelengthOutputStyle="Wavelength" fluxOutputStyle="Wavelength"/>
         </units>
         <cosmology type="Cosmology">
-            <FlatUniverseCosmology redshift="6" reducedHubbleConstant="0.6774" matterDensityFraction="0.31"/>
+            <FlatUniverseCosmology redshift="1" reducedHubbleConstant="0.675" matterDensityFraction="0.31"/>
         </cosmology>
         <sourceSystem type="SourceSystem">
-            <SourceSystem minWavelength="0.5 micron" maxWavelength="5 micron" wavelengths="0.55 micron" sourceBias="0.5">
+            <SourceSystem minWavelength="0.09 micron" maxWavelength="100 micron" wavelengths="0.55 micron" sourceBias="0.5">
                 <sources type="Source">
-                    <ParticleSource filename="stars.dat" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                    <ParticleSource filename="stars.dat" importVelocity="false" importVelocityDispersion="false" importCurrentMass="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
                         <smoothingKernel type="SmoothingKernel">
                             <CubicSplineSmoothingKernel/>
                         </smoothingKernel>
@@ -22,10 +22,10 @@
                             <BruzualCharlotSEDFamily imf="Chabrier" resolution="High"/>
                         </sedFamily>
                         <wavelengthBiasDistribution type="WavelengthDistribution">
-                            <LogWavelengthDistribution minWavelength="0.0001 micron" maxWavelength="1e6 micron"/>
+                            <LogWavelengthDistribution minWavelength="1e-6 micron" maxWavelength="1e6 micron"/>
                         </wavelengthBiasDistribution>
                     </ParticleSource>
-                    <ParticleSource filename="mappings.dat" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                    <ParticleSource filename="mappings.dat" importVelocity="false" importVelocityDispersion="false" importCurrentMass="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
                         <smoothingKernel type="SmoothingKernel">
                             <CubicSplineSmoothingKernel/>
                         </smoothingKernel>
@@ -33,29 +33,37 @@
                             <MappingsSEDFamily/>
                         </sedFamily>
                         <wavelengthBiasDistribution type="WavelengthDistribution">
-                            <LogWavelengthDistribution minWavelength="0.0001 micron" maxWavelength="1e6 micron"/>
+                            <LogWavelengthDistribution minWavelength="1e-6 micron" maxWavelength="1e6 micron"/>
                         </wavelengthBiasDistribution>
                     </ParticleSource>
                 </sources>
             </SourceSystem>
         </sourceSystem>
         <mediumSystem type="MediumSystem">
-            <MediumSystem numDensitySamples="100">
+            <MediumSystem>
                 <photonPacketOptions type="PhotonPacketOptions">
-                    <PhotonPacketOptions forceScattering="true" minWeightReduction="1e4" minScattEvents="0" pathLengthBias="0.5"/>
+                    <PhotonPacketOptions explicitAbsorption="false" forceScattering="true" minWeightReduction="1e4" minScattEvents="0" pathLengthBias="0.5"/>
                 </photonPacketOptions>
-                <extinctionOnlyOptions type="ExtinctionOnlyOptions">
-                    <ExtinctionOnlyOptions storeRadiationField="false"/>
-                </extinctionOnlyOptions>
+                <radiationFieldOptions type="RadiationFieldOptions">
+                    <RadiationFieldOptions storeRadiationField="false"/>
+                </radiationFieldOptions>
                 <media type="Medium">
-                    <VoronoiMeshMedium filename="gas.dat" minX="-1e4 pc" maxX="1e4 pc" minY="-1e4 pc" maxY="1e4 pc" minZ="-1e4 pc" maxZ="1e4 pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
+                    <VoronoiMeshMedium filename="gas.dat" minX="-1000 pc" maxX="1000 pc" minY="-1000 pc" maxY="1000 pc" minZ="-1000 pc" maxZ="1000 pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
+                        <materialMix type="MaterialMix">
+                            <WeingartnerDraineDustMix environment="MilkyWay" numSilicateSizes="5" numGraphiteSizes="5" numPAHSizes="5"/>
+                        </materialMix>
+                    </VoronoiMeshMedium>
+                    <VoronoiMeshMedium filename="gas.dat" minX="-1000 pc" maxX="1000 pc" minY="-1000 pc" maxY="1000 pc" minZ="-1000 pc" maxZ="1000 pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
                         <materialMix type="MaterialMix">
                             <WeingartnerDraineDustMix environment="MilkyWay" numSilicateSizes="5" numGraphiteSizes="5" numPAHSizes="5"/>
                         </materialMix>
                     </VoronoiMeshMedium>
                 </media>
+                <samplingOptions type="SamplingOptions">
+                    <SamplingOptions numDensitySamples="100" numPropertySamples="1" aggregateVelocity="Average"/>
+                </samplingOptions>
                 <grid type="SpatialGrid">
-                    <VoronoiMeshSpatialGrid minX="-1e4 pc" maxX="1e4 pc" minY="-1e4 pc" maxY="1e4 pc" minZ="-1e4 pc" maxZ="1e4 pc" policy="ImportedMesh" numSites="500" filename="" relaxSites="false"/>
+                    <VoronoiMeshSpatialGrid minX="-1000 pc" maxX="1000 pc" minY="-1000 pc" maxY="1000 pc" minZ="-1000 pc" maxZ="1000 pc" policy="ImportedMesh" numSites="500" filename="" relaxSites="false"/>
                 </grid>
             </MediumSystem>
         </mediumSystem>
@@ -64,25 +72,25 @@
                 <defaultWavelengthGrid type="WavelengthGrid">
                     <ConfigurableBandWavelengthGrid>
                         <bands type="Band">
-                            <FileBand filename="jwst_nircam.txt"/>
-                            <FileBand filename="jwst_miri.txt"/>
+                            <FileBand filename="nircam.txt"/>
+                            <FileBand filename="mini.txt"/>
                         </bands>
                     </ConfigurableBandWavelengthGrid>
                 </defaultWavelengthGrid>
                 <instruments type="Instrument">
-                    <FrameInstrument instrumentName="imager" distance="0 Mpc" inclination="0 deg" azimuth="0 deg" roll="0 deg" fieldOfViewX="2e4 pc" numPixelsX="200" centerX="0 pc" fieldOfViewY="2e4 pc" numPixelsY="200" centerY="0 pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false">
+                    <FrameInstrument instrumentName="imager" distance="0 Mpc" inclination="0 deg" azimuth="0 deg" roll="0 deg" fieldOfViewX="2000 pc" numPixelsX="200" centerX="0 pc" fieldOfViewY="2000 pc" numPixelsY="200" centerY="0 pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false">
                         <wavelengthGrid type="WavelengthGrid">
                             <ConfigurableBandWavelengthGrid>
                                 <bands type="Band">
-                                    <FileBand filename="jwst_nircam.txt"/>
-                                    <FileBand filename="jwst_miri.txt"/>
+                                    <FileBand filename="nircam.dat"/>
+                                    <FileBand filename="miri.dat"/>
                                 </bands>
                             </ConfigurableBandWavelengthGrid>
                         </wavelengthGrid>
                     </FrameInstrument>
                     <SEDInstrument instrumentName="spectrograph" distance="0 Mpc" inclination="0 deg" azimuth="0 deg" roll="0 deg" radius="1000 pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false">
                         <wavelengthGrid type="WavelengthGrid">
-                            <FileWavelengthGrid filename="nirspec_wlgrid.dat" relativeHalfWidth="0"/>
+                            <FileWavelengthGrid filename="nirspec.dat" relativeHalfWidth="0" log="false"/>
                         </wavelengthGrid>
                     </SEDInstrument>
                 </instruments>
@@ -91,7 +99,7 @@
         <probeSystem type="ProbeSystem">
             <ProbeSystem>
                 <probes type="Probe">
-                    <SpatialGridConvergenceProbe probeName="sgc_probe" wavelength="0.55 micron"/>
+                    <ConvergenceInfoProbe probeName="scg_probe" wavelength="0.55 micron" probeAfter="Setup"/>
                 </probes>
             </ProbeSystem>
         </probeSystem>
