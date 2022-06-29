@@ -53,11 +53,6 @@
                             <WeingartnerDraineDustMix environment="MilkyWay" numSilicateSizes="5" numGraphiteSizes="5" numPAHSizes="5"/>
                         </materialMix>
                     </VoronoiMeshMedium>
-                    <VoronoiMeshMedium filename="gas.dat" minX="-1000 pc" maxX="1000 pc" minY="-1000 pc" maxY="1000 pc" minZ="-1000 pc" maxZ="1000 pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
-                        <materialMix type="MaterialMix">
-                            <WeingartnerDraineDustMix environment="MilkyWay" numSilicateSizes="5" numGraphiteSizes="5" numPAHSizes="5"/>
-                        </materialMix>
-                    </VoronoiMeshMedium>
                 </media>
                 <samplingOptions type="SamplingOptions">
                     <SamplingOptions numDensitySamples="100" numPropertySamples="1" aggregateVelocity="Average"/>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- A SKIRT parameter file © Astronomical Observatory, Ghent University -->
-<skirt-simulation-hierarchy type="MonteCarloSimulation" format="9" producer="SKIRT v9.0 (git bdfa9c6 built on 17/08/2021 at 02:19:31)" time="2021-08-21T05:00:51.872">
-    <MonteCarloSimulation userLevel="Regular" simulationMode="ExtinctionOnly" numPackets="_NUMPACKAGES_">
+<skirt-simulation-hierarchy type="MonteCarloSimulation" format="9" producer="SKIRT v9.0 (git ff684b0 built on 28/06/2022 at 19:31:15)" time="2022-06-28T19:58:14.633">
+    <MonteCarloSimulation userLevel="Regular" simulationMode="ExtinctionOnly" iterateMediumState="false" iterateSecondaryEmission="false" numPackets="_NUMPACKAGES_">
         <random type="Random">
             <Random seed="12345"/>
         </random>
@@ -14,7 +14,7 @@
         <sourceSystem type="SourceSystem">
             <SourceSystem minWavelength="_WLMIN_ micron" maxWavelength="_WLMAX_ micron" wavelengths="_WLPROBE_ micron" sourceBias="0.5">
                 <sources type="Source">
-                    <ParticleSource filename="_FILENAME_STARS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                    <ParticleSource filename="_FILENAME_STARS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5" importCurrentMass="false">
                         <smoothingKernel type="SmoothingKernel">
                             <CubicSplineSmoothingKernel/>
                         </smoothingKernel>
@@ -25,7 +25,7 @@
                             <LogWavelengthDistribution minWavelength="_WLMIN_ micron" maxWavelength="_WLMAX_ micron"/>
                         </wavelengthBiasDistribution>
                     </ParticleSource>
-                    <ParticleSource filename="_FILENAME_MAPPINGS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5">
+                    <ParticleSource filename="_FILENAME_MAPPINGS_" importVelocity="false" importVelocityDispersion="false" useColumns="" sourceWeight="1" wavelengthBias="0.5" importCurrentMass="false">
                         <smoothingKernel type="SmoothingKernel">
                             <CubicSplineSmoothingKernel/>
                         </smoothingKernel>
@@ -44,12 +44,12 @@
                 <samplingOptions type="SamplingOptions">
                     <SamplingOptions numDensitySamples="100"/>
                 </samplingOptions>
+                <photonPacketOptions type="PhotonPacketOptions">
+                    <PhotonPacketOptions explicitAbsorption="false" forceScattering="true" minWeightReduction="1e4" minScattEvents="0" pathLengthBias="0.5"/>
+                </photonPacketOptions>
                 <radiationFieldOptions type="RadiationFieldOptions">
                     <RadiationFieldOptions storeRadiationField="false"/>
                 </radiationFieldOptions>
-                <photonPacketOptions type="PhotonPacketOptions">
-                    <PhotonPacketOptions forceScattering="true" minWeightReduction="1e4" minScattEvents="0" pathLengthBias="0.5"/>
-                </photonPacketOptions>
                 <media type="Medium">
                     <VoronoiMeshMedium filename="_FILENAME_GAS_" minX="-_SIZE_ pc" maxX="_SIZE_ pc" minY="-_SIZE_ pc" maxY="_SIZE_ pc" minZ="-_SIZE_ pc" maxZ="_SIZE_ pc" massType="MassDensity" massFraction="1" importMetallicity="false" importTemperature="false" maxTemperature="0 K" importVelocity="false" importMagneticField="false" importVariableMixParams="false" useColumns="">
                         <materialMix type="MaterialMix">
@@ -73,13 +73,18 @@ _BANDTEXT_
                 </defaultWavelengthGrid>
                 <instruments type="Instrument">
                     <FrameInstrument instrumentName="_INSTRUMENT_NAME_" distance="_DISTANCE_ Mpc" inclination="_INCLINATION_ deg" azimuth="_AZIMUTH_ deg" roll="0 deg" fieldOfViewX="_FOVSIZE_ pc" numPixelsX="_PIXELNUM_" centerX="0 pc" fieldOfViewY="_FOVSIZE_ pc" numPixelsY="_PIXELNUM_" centerY="0 pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false"/>
+                    <SEDInstrument instrumentName="_INSTRUMENT_NAME_sed" distance="_DISTANCE_ Mpc" inclination="_INCLINATION_ deg" azimuth="_AZIMUTH_ deg" roll="0 deg" radius="_APERTURE_RADIUS_ pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false">
+                        <wavelengthGrid type="WavelengthGrid">
+                            <FileWavelengthGrid filename="_FILENAME_WLGRID_" relativeHalfWidth="0" log="false"/>
+                        </wavelengthGrid>
+                    </SEDInstrument>
                 </instruments>
             </InstrumentSystem>
         </instrumentSystem>
         <probeSystem type="ProbeSystem">
             <ProbeSystem>
                 <probes type="Probe">
-                    <ConvergenceInfoProbe probeName="sgc_probe" wavelength="_WLPROBE_ micron"/>
+                    <ConvergenceInfoProbe probeName="sgc_probe" wavelength="_WLPROBE_ micron" probeAfter="Setup"/>
                 </probes>
             </ProbeSystem>
         </probeSystem>

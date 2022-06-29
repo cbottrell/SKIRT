@@ -297,7 +297,7 @@ def run_skirt(
     speed_of_light = 2.998e14 # [micron/s]
     # nsources*=200
     nsources*=packet_factor
-    ski_in = f'{skirt_path}/shalo_bands.ski'
+    ski_in = f'{skirt_path}/shalo_jwst.ski'
 
     if not os.access(tmp_path,0):
         os.system(f'mkdir -p {tmp_path}')
@@ -348,7 +348,15 @@ def run_skirt(
     bands = np.array(bands)[sort_idx]
     bandtxt = ''.join([' '*28+f'<FileBand filename="{band_dir}/{band}.dat"/>\n' for band in bands])
     bandtxt = bandtxt.strip('\n') # drop last return carriage
-
+    
+    # spectroscopic grid
+    file_wlgrid = f'{skirt_path}/Spectroscopy/WavelengthGrids/NIRSPec_CombinedGrid.dat'
+    # spectroscopic aperture (circular effective)
+    apertureArea_arcsec2 = 3.2*0.2 # arcsec2
+    apertureRadius_arcsec = np.sqrt(apertureArea_arcsec2/np.pi) # arcsec
+    kpc_per_arcsec = cosmo.kpc_proper_per_arcmin(redshift).value/60 
+    apertureRadius_pc = apertureRadius_arcsec*kpc_per_arcsec*1000. # pc
+    
     # Replace the target string
     filedata = re.sub('_REDSHIFT_',str(redshift),filedata)
     filedata = re.sub('_LITTLEH_',str(little_h),filedata)
@@ -362,6 +370,8 @@ def run_skirt(
     filedata = re.sub('_FILENAME_GAS_',f_gas,filedata)
     filedata = re.sub('_FOVSIZE_',str(fovsize),filedata)
     filedata = re.sub('_PIXELNUM_',str(npix),filedata)
+    filedata = re.sub('_FILENAME_WLGRID_',file_wlgrid,filedata)
+    filedata = re.sub('_APERTURE_RADIUS_',apertureRadius_pc,filedata)
     filedata = re.sub('_SIZE_',str(fovsize*fof_factor/2.),filedata)
     filedata = re.sub('_NUMCELLS_',str(ncells),filedata)
     filedata = re.sub('_INSTRUMENT_NAME_',cam,filedata)
@@ -376,53 +386,53 @@ def run_skirt(
     if not os.access(skirt_total,0):
         os.system(f'srun skirt -t {nthreads} {ski_out}')
 
-    hdu = fits.open(skirt_total)
-    images = hdu[0].data*1e26 # [Jy*Hz/micron/arcsec2]
-    header = hdu[0].header
-    wl_pivot2 = np.array([wl_pivot[0]**2 for wl_pivot in hdu[1].data]) # microns2
+#     hdu = fits.open(skirt_total)
+#     images = hdu[0].data*1e26 # [Jy*Hz/micron/arcsec2]
+#     header = hdu[0].header
+#     wl_pivot2 = np.array([wl_pivot[0]**2 for wl_pivot in hdu[1].data]) # microns2
     
-    # calibrated images in maggies
-    images = images*wl_pivot2.reshape(-1,1,1)/speed_of_light/3631.
-    # convert to mag/arcsec2 surface brightness for numerical ease
-    with np.errstate(divide='ignore'):
-        images = -2.5*np.log10(images) # [mag/arcsec2] AB system
-        images[images==np.inf]=99.
+#     # calibrated images in maggies
+#     images = images*wl_pivot2.reshape(-1,1,1)/speed_of_light/3631.
+#     # convert to mag/arcsec2 surface brightness for numerical ease
+#     with np.errstate(divide='ignore'):
+#         images = -2.5*np.log10(images) # [mag/arcsec2] AB system
+#         images[images==np.inf]=99.
         
-    hdu_list = fits.HDUList()
-    for i in range(len(bands)):
-        hdu = fits.ImageHDU(images[i].astype('float32'),name=bands[i])
-        hdr = hdu.header
-        hdr['ORIGIN'] = ('SKIRT 9 Simulation','Image origin')
-        hdr['SIMTAG'] = (sim_tag,'Simulation name')
-        hdr['SNAPNUM'] = (snap,'Simulation snapshot')
-        hdr['SUBHALO'] = (sub,'Subhalo ID')
-        hdr['CAMERA'] = (cam,'Camera ID')
-        hdr['INCL'] = (incl,'Camera inclination')
-        hdr['AZIM'] = (azim,'Camera azimuth')
-        hdr['ROLL'] = (0.,'Camera roll')
-        hdr['COSMO'] = (cosmo.name,'Cosmology')
-        hdr['REDSHIFT'] = (float(f'{redshift:.4f}'),'Redshift')
-        hdr['FILTER'] = (bands[i],'Filter name')
-        hdr['NPACKET'] = (nsources,'Number of photon packets')
-        hdr['WLPIVOT'] = (np.sqrt(wl_pivot2[i]),'Pivot wavelength (micron)')
-        hdr['BUNIT'] = ('AB mag/arcsec2','Image units')
-        hdr['FOVSIZE'] = (fovsize/1e3,'Field of view [kpc]')
-        hdr['CRPIX1'] = (npix/2, 'X-axis coordinate system reference pixel')
-        hdr['CRVAL1'] = (0., 'Coordinate system value at X-axis reference pix')
-        hdr['CDELT1'] = (fovsize/1e3/npix, 'Coordinate increment along X-axis')
-        hdr['CTYPE1'] = ('kpc', 'Physical units of the X-axis increment')
-        hdr['CRPIX2'] = (npix/2, 'Y-axis coordinate system reference pixel')
-        hdr['CRVAL2'] = (0., 'Coordinate system value at Y-axis reference pix')
-        hdr['CDELT2'] = (fovsize/1e3/npix, 'Coordinate increment along Y-axis')
-        hdr['CTYPE2'] = ('kpc', 'Physical units of the Y-axis increment')
-        hdu_list.append(hdu)
+#     hdu_list = fits.HDUList()
+#     for i in range(len(bands)):
+#         hdu = fits.ImageHDU(images[i].astype('float32'),name=bands[i])
+#         hdr = hdu.header
+#         hdr['ORIGIN'] = ('SKIRT 9 Simulation','Image origin')
+#         hdr['SIMTAG'] = (sim_tag,'Simulation name')
+#         hdr['SNAPNUM'] = (snap,'Simulation snapshot')
+#         hdr['SUBHALO'] = (sub,'Subhalo ID')
+#         hdr['CAMERA'] = (cam,'Camera ID')
+#         hdr['INCL'] = (incl,'Camera inclination')
+#         hdr['AZIM'] = (azim,'Camera azimuth')
+#         hdr['ROLL'] = (0.,'Camera roll')
+#         hdr['COSMO'] = (cosmo.name,'Cosmology')
+#         hdr['REDSHIFT'] = (float(f'{redshift:.4f}'),'Redshift')
+#         hdr['FILTER'] = (bands[i],'Filter name')
+#         hdr['NPACKET'] = (nsources,'Number of photon packets')
+#         hdr['WLPIVOT'] = (np.sqrt(wl_pivot2[i]),'Pivot wavelength (micron)')
+#         hdr['BUNIT'] = ('AB mag/arcsec2','Image units')
+#         hdr['FOVSIZE'] = (fovsize/1e3,'Field of view [kpc]')
+#         hdr['CRPIX1'] = (npix/2, 'X-axis coordinate system reference pixel')
+#         hdr['CRVAL1'] = (0., 'Coordinate system value at X-axis reference pix')
+#         hdr['CDELT1'] = (fovsize/1e3/npix, 'Coordinate increment along X-axis')
+#         hdr['CTYPE1'] = ('kpc', 'Physical units of the X-axis increment')
+#         hdr['CRPIX2'] = (npix/2, 'Y-axis coordinate system reference pixel')
+#         hdr['CRVAL2'] = (0., 'Coordinate system value at Y-axis reference pix')
+#         hdr['CDELT2'] = (fovsize/1e3/npix, 'Coordinate increment along Y-axis')
+#         hdr['CTYPE2'] = ('kpc', 'Physical units of the Y-axis increment')
+#         hdu_list.append(hdu)
         
-    # output directory
-    if not os.access(out_path,0):
-        os.system(f'mkdir -p {out_path}')
+#     # output directory
+#     if not os.access(out_path,0):
+#         os.system(f'mkdir -p {out_path}')
         
-    photo_name = f'{out_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits'
-    hdu_list.writeto(photo_name,overwrite=True) 
+#     photo_name = f'{out_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits'
+#     hdu_list.writeto(photo_name,overwrite=True) 
     
 def prepare_only(args):
     
@@ -448,7 +458,7 @@ def prepare_only(args):
     # photometry path
     phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
     
-    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=10.5)
+    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     subs_per_task,rmdr = divmod(len(subs),ntasks)
     if rmdr > 0: subs_per_task+=1
     subs = subs[task_idx*subs_per_task:(task_idx+1)*subs_per_task]
@@ -492,7 +502,7 @@ def run_only(args):
     # photometry path
     phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
     
-    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=10.5)
+    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     subs_per_task,rmdr = divmod(len(subs),ntasks)
     if rmdr > 0: subs_per_task+=1
     subs = subs[task_idx*subs_per_task:(task_idx+1)*subs_per_task]
@@ -528,14 +538,14 @@ def run_only(args):
                          out_path=phot_path,
                          packet_factor=100)
 
-        files_exist = True
-        for cam in cams:
-            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
-                files_exist=False
+#         files_exist = True
+#         for cam in cams:
+#             if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
+#                 files_exist=False
 
-        # clean up
-        if files_exist:
-            os.system(f'rm -rf {tmp_path}')
+#         # clean up
+#         if files_exist:
+#             os.system(f'rm -rf {tmp_path}')
         
 if __name__=='__main__':
     
