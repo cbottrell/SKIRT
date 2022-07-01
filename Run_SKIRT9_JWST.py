@@ -80,7 +80,7 @@ def prepare_skirt(snap,sub,sim_path,tmp_path,
     nthreads = int(environ['SKIRT_CPUS_PER_TASK']) if 'SKIRT_CPUS_PER_TASK' in environ else 1
     
     #load current scale factor
-    header = dict(h5py.File(f'{sim_path}/snapdir_{snap:03d}/snap_{snap:03d}.0.hdf5',"r")["Header"].attrs.items())
+    header = dict(h5py.File(f'{sim_path}/snapdir_{snap:03d}/snap_{snap:03d}.100.hdf5',"r")["Header"].attrs.items())
     redshift,a2 = header['Redshift'],header['Time']
     boxSize = header['BoxSize']
     
@@ -384,7 +384,8 @@ def run_skirt(
         
     skirt_total = f'shalo_{snap:03}-{sub}_{cam}_total.fits'
     if not os.access(skirt_total,0):
-        os.system(f'srun skirt -t {nthreads} {ski_out}')
+        # os.system(f'srun skirt -t {nthreads} {ski_out}')
+        os.system(f'mpirun -n {ntasks} skirt -t {nthreads} {ski_out}')
 
 #     hdu = fits.open(skirt_total)
 #     images = hdu[0].data*1e26 # [Jy*Hz/micron/arcsec2]
@@ -442,21 +443,19 @@ def prepare_only(args):
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
 
-#     # base path where TNG data is stored
-#     sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
-#     # base path of output directory
-#     project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
-#     # photometry path
-#     phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
-#     # spectroscopy path
-#     spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
-
     # base path where TNG data is stored
-    sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim}/output'
     # base path of output directory
-    project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
     # photometry path
-    phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
+    phot_path = f'{project_path}/{sim}/postprocessing/SKIRT9/Photometry/{snap:03}'
+
+    # # base path where TNG data is stored
+    # sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    # # base path of output directory
+    # project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    # # photometry path
+    # phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
     
     subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     subs_per_task,rmdr = divmod(len(subs),ntasks)
@@ -470,8 +469,8 @@ def prepare_only(args):
             sys.exit(f'All output images already exist for {sim}-{snap:03}-{sub}.')
 
         # working directory for job
-        #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
-        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+        tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
+        # tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
         if not os.access(tmp_path,0):
             os.system(f'mkdir -p {tmp_path}')
         os.chdir(tmp_path)
@@ -486,21 +485,20 @@ def run_only(args):
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     
-    # # base path where TNG data is stored
-    # sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
-    # # base path of output directory
-    # project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
-    # # photometry path
-    # phot_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Photometry/{snap:03}'
-    # # spectroscopy path
-    # spec_path = f'{project_path}/{sim_tag}/postprocessing/SKIRT9/Spectroscopy/{snap:03}'
-    
     # base path where TNG data is stored
-    sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim}/output'
     # base path of output directory
-    project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
     # photometry path
-    phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
+    phot_path = f'{project_path}/{sim}/postprocessing/SKIRT9/Photometry/{snap:03}'
+
+    
+    # # base path where TNG data is stored
+    # sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    # # base path of output directory
+    # project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    # # photometry path
+    # phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
     
     subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     subs_per_task,rmdr = divmod(len(subs),ntasks)
@@ -512,9 +510,10 @@ def run_only(args):
     for sub in subs:
         
         # working directory for job
-        #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
-        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
-        skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
+        tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
+        skirt_path=f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT'
+        # tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+        # skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
 
         f_stars = f'{tmp_path}/shalo_{snap:03d}-{sub}_stars.dat'
         f_mappings = f'{tmp_path}/shalo_{snap:03d}-{sub}_mappings.dat'
