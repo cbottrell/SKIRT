@@ -371,7 +371,7 @@ def run_skirt(
     filedata = re.sub('_FOVSIZE_',str(fovsize),filedata)
     filedata = re.sub('_PIXELNUM_',str(npix),filedata)
     filedata = re.sub('_FILENAME_WLGRID_',file_wlgrid,filedata)
-    filedata = re.sub('_APERTURE_RADIUS_',apertureRadius_pc,filedata)
+    filedata = re.sub('_APERTURE_RADIUS_',str(apertureRadius_pc),filedata)
     filedata = re.sub('_SIZE_',str(fovsize*fof_factor/2.),filedata)
     filedata = re.sub('_NUMCELLS_',str(ncells),filedata)
     filedata = re.sub('_INSTRUMENT_NAME_',cam,filedata)
