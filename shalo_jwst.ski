@@ -73,7 +73,7 @@ _BANDTEXT_
                 </defaultWavelengthGrid>
                 <instruments type="Instrument">
                     <FrameInstrument instrumentName="_INSTRUMENT_NAME_" distance="_DISTANCE_ Mpc" inclination="_INCLINATION_ deg" azimuth="_AZIMUTH_ deg" roll="0 deg" fieldOfViewX="_FOVSIZE_ pc" numPixelsX="_PIXELNUM_" centerX="0 pc" fieldOfViewY="_FOVSIZE_ pc" numPixelsY="_PIXELNUM_" centerY="0 pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false"/>
-                    <SEDInstrument instrumentName="_INSTRUMENT_NAME_sed" distance="_DISTANCE_ Mpc" inclination="_INCLINATION_ deg" azimuth="_AZIMUTH_ deg" roll="0 deg" radius="_APERTURE_RADIUS_ pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false">
+                    <SEDInstrument instrumentName="_INSTRUMENT_NAME_" distance="_DISTANCE_ Mpc" inclination="_INCLINATION_ deg" azimuth="_AZIMUTH_ deg" roll="0 deg" radius="_APERTURE_RADIUS_ pc" recordComponents="false" numScatteringLevels="0" recordPolarization="false" recordStatistics="false">
                         <wavelengthGrid type="WavelengthGrid">
                             <FileWavelengthGrid filename="_FILENAME_WLGRID_" relativeHalfWidth="0" log="false"/>
                         </wavelengthGrid>

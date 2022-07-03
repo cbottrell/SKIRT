@@ -341,8 +341,8 @@ def run_skirt(
             wl_band_max = np.maximum(np.max(wl_band),wl_band_max)
     
     # update wavelength range to band limits
-    wl_min = np.maximum(wl_band_min,wl_min)
-    wl_max = np.minimum(wl_band_max,wl_max)
+    wl_min = np.maximum(wl_band_min/(1+redshift),wl_min)
+    wl_max = np.minimum(wl_band_max/(1+redshift),wl_max)
 
     sort_idx = np.argsort(wl_pivot)
     bands = np.array(bands)[sort_idx]
@@ -352,7 +352,7 @@ def run_skirt(
     # spectroscopic grid
     file_wlgrid = f'{skirt_path}/Spectroscopy/WavelengthGrids/NIRSPec_CombinedGrid.dat'
     # spectroscopic aperture (circular effective)
-    apertureArea_arcsec2 = 3.2*0.2 # arcsec2
+    apertureArea_arcsec2 = 1.6**2 # arcsec2
     apertureRadius_arcsec = np.sqrt(apertureArea_arcsec2/np.pi) # arcsec
     kpc_per_arcsec = cosmo.kpc_proper_per_arcmin(redshift).value/60 
     apertureRadius_pc = apertureRadius_arcsec*kpc_per_arcsec*1000. # pc
@@ -384,56 +384,83 @@ def run_skirt(
         
     skirt_total = f'shalo_{snap:03}-{sub}_{cam}_total.fits'
     if not os.access(skirt_total,0):
-        # os.system(f'srun skirt -t {nthreads} {ski_out}')
-        os.system(f'mpirun -n {ntasks} skirt -t {nthreads} {ski_out}')
+        # os.system(f'mpirun -n {ntasks} skirt -t {nthreads} {ski_out}')
+        os.system(f'srun skirt -t {nthreads} {ski_out}')
 
-#     hdu = fits.open(skirt_total)
-#     images = hdu[0].data*1e26 # [Jy*Hz/micron/arcsec2]
-#     header = hdu[0].header
-#     wl_pivot2 = np.array([wl_pivot[0]**2 for wl_pivot in hdu[1].data]) # microns2
+    hdu = fits.open(skirt_total)
+    images = hdu[0].data*1e26 # [Jy*Hz/micron/arcsec2]
+    header = hdu[0].header
+    wl_pivot2 = np.array([wl_pivot[0]**2 for wl_pivot in hdu[1].data]) # microns2
     
-#     # calibrated images in maggies
-#     images = images*wl_pivot2.reshape(-1,1,1)/speed_of_light/3631.
-#     # convert to mag/arcsec2 surface brightness for numerical ease
-#     with np.errstate(divide='ignore'):
-#         images = -2.5*np.log10(images) # [mag/arcsec2] AB system
-#         images[images==np.inf]=99.
+    # calibrated images in maggies
+    images = images*wl_pivot2.reshape(-1,1,1)/speed_of_light/3631.
+    # convert to mag/arcsec2 surface brightness for numerical ease
+    with np.errstate(divide='ignore'):
+        images = -2.5*np.log10(images) # [mag/arcsec2] AB system
+        images[images==np.inf]=99.
         
-#     hdu_list = fits.HDUList()
-#     for i in range(len(bands)):
-#         hdu = fits.ImageHDU(images[i].astype('float32'),name=bands[i])
-#         hdr = hdu.header
-#         hdr['ORIGIN'] = ('SKIRT 9 Simulation','Image origin')
-#         hdr['SIMTAG'] = (sim_tag,'Simulation name')
-#         hdr['SNAPNUM'] = (snap,'Simulation snapshot')
-#         hdr['SUBHALO'] = (sub,'Subhalo ID')
-#         hdr['CAMERA'] = (cam,'Camera ID')
-#         hdr['INCL'] = (incl,'Camera inclination')
-#         hdr['AZIM'] = (azim,'Camera azimuth')
-#         hdr['ROLL'] = (0.,'Camera roll')
-#         hdr['COSMO'] = (cosmo.name,'Cosmology')
-#         hdr['REDSHIFT'] = (float(f'{redshift:.4f}'),'Redshift')
-#         hdr['FILTER'] = (bands[i],'Filter name')
-#         hdr['NPACKET'] = (nsources,'Number of photon packets')
-#         hdr['WLPIVOT'] = (np.sqrt(wl_pivot2[i]),'Pivot wavelength (micron)')
-#         hdr['BUNIT'] = ('AB mag/arcsec2','Image units')
-#         hdr['FOVSIZE'] = (fovsize/1e3,'Field of view [kpc]')
-#         hdr['CRPIX1'] = (npix/2, 'X-axis coordinate system reference pixel')
-#         hdr['CRVAL1'] = (0., 'Coordinate system value at X-axis reference pix')
-#         hdr['CDELT1'] = (fovsize/1e3/npix, 'Coordinate increment along X-axis')
-#         hdr['CTYPE1'] = ('kpc', 'Physical units of the X-axis increment')
-#         hdr['CRPIX2'] = (npix/2, 'Y-axis coordinate system reference pixel')
-#         hdr['CRVAL2'] = (0., 'Coordinate system value at Y-axis reference pix')
-#         hdr['CDELT2'] = (fovsize/1e3/npix, 'Coordinate increment along Y-axis')
-#         hdr['CTYPE2'] = ('kpc', 'Physical units of the Y-axis increment')
-#         hdu_list.append(hdu)
+    # imager component
+    hdu_list = fits.HDUList()
+    for i in range(len(bands)):
+        hdu = fits.ImageHDU(images[i].astype('float32'),name=bands[i])
+        hdr = hdu.header
+        hdr['ORIGIN'] = ('SKIRT 9 Simulation','Image origin')
+        hdr['SIMTAG'] = (sim_tag,'Simulation name')
+        hdr['SNAPNUM'] = (snap,'Simulation snapshot')
+        hdr['SUBHALO'] = (sub,'Subhalo ID')
+        hdr['CAMERA'] = (cam,'Camera ID')
+        hdr['INCL'] = (incl,'Camera inclination')
+        hdr['AZIM'] = (azim,'Camera azimuth')
+        hdr['ROLL'] = (0.,'Camera roll')
+        hdr['COSMO'] = (cosmo.name,'Cosmology')
+        hdr['REDSHIFT'] = (float(f'{redshift:.4f}'),'Redshift')
+        hdr['FILTER'] = (bands[i],'Filter name')
+        hdr['NPACKET'] = (nsources,'Number of photon packets')
+        hdr['WLPIVOT'] = (np.sqrt(wl_pivot2[i]),'Pivot wavelength (micron)')
+        hdr['BUNIT'] = ('AB mag/arcsec2','Image units')
+        hdr['FOVSIZE'] = (fovsize/1e3,'Field of view [kpc]')
+        hdr['CRPIX1'] = (npix/2,'X-axis coordinate system reference pixel')
+        hdr['CRVAL1'] = (0.,'Coordinate system value at X-axis reference pix')
+        hdr['CDELT1'] = (fovsize/1e3/npix,'Coordinate increment along X-axis')
+        hdr['CTYPE1'] = ('kpc','Physical units of the X-axis increment')
+        hdr['CRPIX2'] = (npix/2,'Y-axis coordinate system reference pixel')
+        hdr['CRVAL2'] = (0.,'Coordinate system value at Y-axis reference pix')
+        hdr['CDELT2'] = (fovsize/1e3/npix,'Coordinate increment along Y-axis')
+        hdr['CTYPE2'] = ('kpc','Physical units of the Y-axis increment')
+        hdu_list.append(hdu)
+    
+    skirt_sed = skirt_total.replace('total.fits','sed.dat')
+    # spectrograph component
+    wl,sed = np.loadtxt(skirt_sed,unpack=True)
+    wl  = fits.Column(name='WLGRID',array=wl,format='D',
+                      unit='micron')
+    sed = fits.Column(name='SPECTRUM',array=sed,format='D',
+                      unit='W/m^2/micron')
+    coldefs = fits.ColDefs([wl, sed])
+    hdu = fits.BinTableHDU.from_columns(coldefs,name='JWST_NIRSpec')
+    hdr = hdu.header
+    hdr['ORIGIN'] = ('SKIRT 9 Simulation','Image origin')
+    hdr['SIMTAG'] = (sim_tag,'Simulation name')
+    hdr['SNAPNUM'] = (snap,'Simulation snapshot')
+    hdr['SUBHALO'] = (sub,'Subhalo ID')
+    hdr['CAMERA'] = (cam,'Camera ID')
+    hdr['INCL'] = (incl,'Camera inclination')
+    hdr['AZIM'] = (azim,'Camera azimuth')
+    hdr['ROLL'] = (0.,'Camera roll')
+    hdr['COSMO'] = (cosmo.name,'Cosmology')
+    hdr['REDSHIFT'] = (float(f'{redshift:.4f}'),'Redshift')
+    hdr['INST'] = ('S1600A1','Instrument name')
+    hdr['NPACKET'] = (nsources,'Number of photon packets')
+    hdr['APER_KPC'] = (apertureRadius_pc/1e3,'Aperture radius [kpc]')
+    hdr['APER_ARC'] = (apertureRadius_arcsec,'Aperture radius [arcsec]')
+    hdu_list.append(hdu)
         
-#     # output directory
-#     if not os.access(out_path,0):
-#         os.system(f'mkdir -p {out_path}')
+    # output directory
+    if not os.access(out_path,0):
+        os.system(f'mkdir -p {out_path}')
         
-#     photo_name = f'{out_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits'
-#     hdu_list.writeto(photo_name,overwrite=True) 
+    photo_name = f'{out_path}/shalo_{snap:03}-{sub}_{cam}_jwst.fits'
+    hdu_list.writeto(photo_name,overwrite=True) 
     
 def prepare_only(args):
     
@@ -443,19 +470,19 @@ def prepare_only(args):
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
 
-    # base path where TNG data is stored
-    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim}/output'
-    # base path of output directory
-    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
-    # photometry path
-    phot_path = f'{project_path}/{sim}/postprocessing/SKIRT9/Photometry/{snap:03}'
-
     # # base path where TNG data is stored
-    # sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    # sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim}/output'
     # # base path of output directory
-    # project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    # project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
     # # photometry path
-    # phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
+    # phot_path = f'{project_path}/{sim}/postprocessing/SKIRT9/Photometry/{snap:03}'
+
+    # base path where TNG data is stored
+    sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    # base path of output directory
+    project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    # photometry path
+    phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
     
     subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     subs_per_task,rmdr = divmod(len(subs),ntasks)
@@ -464,13 +491,13 @@ def prepare_only(args):
     for sub in subs:
         # Check if output already exists. If so, skip.
         cams = ['v0','v1','v2','v3']
-        outfiles = glob.glob(f'{phot_path}/shalo_{snap:03}-{sub}_*_photo.fits')
+        outfiles = glob.glob(f'{phot_path}/shalo_{snap:03}-{sub}_*_jwst.fits')
         if len(outfiles)==len(cams):
             sys.exit(f'All output images already exist for {sim}-{snap:03}-{sub}.')
 
         # working directory for job
-        tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
-        # tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+        # tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
+        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
         if not os.access(tmp_path,0):
             os.system(f'mkdir -p {tmp_path}')
         os.chdir(tmp_path)
@@ -485,20 +512,20 @@ def run_only(args):
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     
-    # base path where TNG data is stored
-    sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim}/output'
-    # base path of output directory
-    project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
-    # photometry path
-    phot_path = f'{project_path}/{sim}/postprocessing/SKIRT9/Photometry/{snap:03}'
+    # # base path where TNG data is stored
+    # sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim}/output'
+    # # base path of output directory
+    # project_path = '/lustre/work/connor.bottrell/Simulations/IllustrisTNG'
+    # # photometry path
+    # phot_path = f'{project_path}/{sim}/postprocessing/SKIRT9/Photometry/{snap:03}'
 
     
-    # # base path where TNG data is stored
-    # sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
-    # # base path of output directory
-    # project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
-    # # photometry path
-    # phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
+    # base path where TNG data is stored
+    sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
+    # base path of output directory
+    project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
+    # photometry path
+    phot_path = f'{project_path}/{sim}/JWST/Idealized/{snap:03}'
     
     subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=9)
     subs_per_task,rmdr = divmod(len(subs),ntasks)
@@ -510,10 +537,10 @@ def run_only(args):
     for sub in subs:
         
         # working directory for job
-        tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
-        skirt_path=f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT'
-        # tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
-        # skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
+        # tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
+        # skirt_path=f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT'
+        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+        skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
 
         f_stars = f'{tmp_path}/shalo_{snap:03d}-{sub}_stars.dat'
         f_mappings = f'{tmp_path}/shalo_{snap:03d}-{sub}_mappings.dat'
@@ -529,7 +556,7 @@ def run_only(args):
             continue
 
         for cam in cams:
-            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
+            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_jwst.fits',0):
                 run_skirt(snap,sub,cam,sim,
                          sim_path=sim_path,
                          tmp_path=tmp_path,
@@ -539,7 +566,7 @@ def run_only(args):
 
 #         files_exist = True
 #         for cam in cams:
-#             if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
+#             if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_jwst.fits',0):
 #                 files_exist=False
 
 #         # clean up
