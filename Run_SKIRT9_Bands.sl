@@ -18,7 +18,7 @@ source $HOME/.bashrc
 conda activate tf39_cpu
 
 export SIM='TNG100-1'
-export SNAP=91
+export SNAP=84
 export JOB_ARRAY_SIZE=300
 export JOB_ARRAY_INDEX=$SLURM_ARRAY_TASK_ID
 

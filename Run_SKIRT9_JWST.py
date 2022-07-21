@@ -564,14 +564,14 @@ def run_only(args):
                          out_path=phot_path,
                          packet_factor=100)
 
-#         files_exist = True
-#         for cam in cams:
-#             if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_jwst.fits',0):
-#                 files_exist=False
+        files_exist = True
+        for cam in cams:
+            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_jwst.fits',0):
+                files_exist=False
 
-#         # clean up
-#         if files_exist:
-#             os.system(f'rm -rf {tmp_path}')
+        # clean up
+        if files_exist:
+            os.system(f'rm -rf {tmp_path}')
         
 if __name__=='__main__':
     

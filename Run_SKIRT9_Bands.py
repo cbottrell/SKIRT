@@ -422,9 +422,12 @@ def prepare_only(args):
     
     environ = os.environ
     sim = environ['SIM']
-    snap = int(environ['SNAP'])
+    snapMin,snapMax = 72,91
+    snaps = np.arange(snapMin,snapMax+1)[::-1]
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
+    mstar_lower=10.
+    cams = ['v0','v1','v2','v3']
 
 #     # base path where TNG data is stored
 #     sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
@@ -439,36 +442,38 @@ def prepare_only(args):
     sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
     # base path of output directory
     project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
-    # photometry path
-    phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
     
-    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=10.5)
-    subs_per_task,rmdr = divmod(len(subs),ntasks)
-    if rmdr > 0: subs_per_task+=1
-    subs = subs[task_idx*subs_per_task:(task_idx+1)*subs_per_task]
-    for sub in subs:
-        # Check if output already exists. If so, skip.
-        cams = ['v0','v1','v2','v3']
-        outfiles = glob.glob(f'{phot_path}/shalo_{snap:03}-{sub}_*_photo.fits')
-        if len(outfiles)==len(cams):
-            sys.exit(f'All output images already exist for {sim}-{snap:03}-{sub}.')
+    for snap in snaps:
+        # photometry path
+        phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
+        subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=mstar_lower)
+        subs = subs[task_idx::ntasks]
+        for sub in subs:
+            # Check if output already exists. If so, skip.
+            outfiles = glob.glob(f'{phot_path}/shalo_{snap:03}-{sub}_*_photo.fits')
+            if len(outfiles)==len(cams):
+                print(f'All output images already exist for {sim}-{snap:03}-{sub}.')
+                continue
 
-        # working directory for job
-        #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
-        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
-        if not os.access(tmp_path,0):
-            os.system(f'mkdir -p {tmp_path}')
-        os.chdir(tmp_path)
+            # working directory for job
+            #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
+            tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+            if not os.access(tmp_path,0):
+                os.system(f'mkdir -p {tmp_path}')
+            os.chdir(tmp_path)
 
-        fovsize,npix,ncells,nsources,fof_factor,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
+            fovsize,npix,ncells,nsources,fof_factor,f_stars,f_mappings,f_gas = prepare_skirt(snap,sub,sim_path,tmp_path,correct_pdrs=False)
     
 def run_only(args):
     
     environ = os.environ
     sim = environ['SIM']
-    snap = int(environ['SNAP'])
+    snapMin,snapMax = 72,91
+    snaps = np.arange(snapMin,snapMax+1)[::-1]
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
+    mstar_lower=10.
+    cams = ['v0','v1','v2','v3']
     
     # # base path where TNG data is stored
     # sim_path = f'/lustre/work/connor.bottrell/Simulations/IllustrisTNG/{sim_tag}/output'
@@ -483,53 +488,48 @@ def run_only(args):
     sim_path = f'/virgotng/universe/IllustrisTNG/{sim}/output'
     # base path of output directory
     project_path = '/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG'
-    # photometry path
-    phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
     
-    subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=10.5)
-    subs_per_task,rmdr = divmod(len(subs),ntasks)
-    if rmdr > 0: subs_per_task+=1
-    subs = subs[task_idx*subs_per_task:(task_idx+1)*subs_per_task]
+    for snap in snaps:
+        # photometry path
+        phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
+        subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=mstar_lower)
+        subs = subs[task_idx::ntasks]
+        for sub in subs:
+            # working directory for job
+            #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
+            tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+            skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
 
-    cams = ['v0','v1','v2','v3']
-    
-    for sub in subs:
-        
-        # working directory for job
-        #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
-        tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
-        skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
+            f_stars = f'{tmp_path}/shalo_{snap:03d}-{sub}_stars.dat'
+            f_mappings = f'{tmp_path}/shalo_{snap:03d}-{sub}_mappings.dat'
+            f_gas = f'{tmp_path}/shalo_{snap:03d}-{sub}_gas.dat'
 
-        f_stars = f'{tmp_path}/shalo_{snap:03d}-{sub}_stars.dat'
-        f_mappings = f'{tmp_path}/shalo_{snap:03d}-{sub}_mappings.dat'
-        f_gas = f'{tmp_path}/shalo_{snap:03d}-{sub}_gas.dat'
+            inputs_ready = True
+            for skirt_file in [f_stars,f_mappings,f_gas]:
+                if not os.access(skirt_file,0):
+                    print(f'Missing SKIRT input files for {snap:03}-{sub}. Skipping...')
+                    inputs_ready = False
 
-        inputs_ready = True
-        for skirt_file in [f_stars,f_mappings,f_gas]:
-            if not os.access(skirt_file,0):
-                print(f'Missing SKIRT input files for {snap:03}-{sub}. Skipping...')
-                inputs_ready = False
-                
-        if not inputs_ready:
-            continue
+            if not inputs_ready:
+                continue
 
-        for cam in cams:
-            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
-                run_skirt(snap,sub,cam,sim,
-                         sim_path=sim_path,
-                         tmp_path=tmp_path,
-                         skirt_path=skirt_path,
-                         out_path=phot_path,
-                         packet_factor=100)
+            for cam in cams:
+                if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
+                    run_skirt(snap,sub,cam,sim,
+                             sim_path=sim_path,
+                             tmp_path=tmp_path,
+                             skirt_path=skirt_path,
+                             out_path=phot_path,
+                             packet_factor=100)
 
-        files_exist = True
-        for cam in cams:
-            if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
-                files_exist=False
+            files_exist = True
+            for cam in cams:
+                if not os.access(f'{phot_path}/shalo_{snap:03}-{sub}_{cam}_photo.fits',0):
+                    files_exist=False
 
-        # clean up
-        if files_exist:
-            os.system(f'rm -rf {tmp_path}')
+            # clean up
+            if files_exist:
+                os.system(f'rm -rf {tmp_path}')
         
 if __name__=='__main__':
     
