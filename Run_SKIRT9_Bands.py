@@ -469,7 +469,7 @@ def run_only(args):
     environ = os.environ
     sim = environ['SIM']
     snapMin,snapMax = 72,91
-    snaps = np.arange(snapMin,snapMax+1)[::-1]
+    snaps = np.arange(snapMin,snapMax+1)
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     mstar_lower=10.
