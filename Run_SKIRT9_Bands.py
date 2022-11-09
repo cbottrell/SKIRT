@@ -426,7 +426,7 @@ def prepare_only(args):
     snaps = np.arange(snapMin,snapMax+1)[::-1]
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
-    mstar_lower=10.
+    mstar_lower=9.
     cams = ['v0','v1','v2','v3']
 
 #     # base path where TNG data is stored
@@ -457,7 +457,7 @@ def prepare_only(args):
 
             # working directory for job
             #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03}-{sub}'
-            tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+            tmp_path=f'/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG/{sim}/tmpdir/tmp_{snap:03}-{sub}'
             if not os.access(tmp_path,0):
                 os.system(f'mkdir -p {tmp_path}')
             os.chdir(tmp_path)
@@ -469,10 +469,10 @@ def run_only(args):
     environ = os.environ
     sim = environ['SIM']
     snapMin,snapMax = 72,91
-    snaps = np.arange(snapMin,snapMax+1)
+    snaps = np.arange(snapMin,snapMax+1)[::-1]
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
-    mstar_lower=10.
+    mstar_lower=9.
     cams = ['v0','v1','v2','v3']
     
     # # base path where TNG data is stored
@@ -497,7 +497,7 @@ def run_only(args):
         for sub in subs:
             # working directory for job
             #tmp_path=f'/lustre/work/connor.bottrell/tmpdir/tmp_{snap:03d}-{sub}'
-            tmp_path=f'/vera/ptmp/gc/bconn/tmpdir/tmp_{snap:03}-{sub}'
+            tmp_path=f'/vera/ptmp/gc/bconn/SKIRT/IllustrisTNG/{sim}/tmpdir/tmp_{snap:03}-{sub}'
             skirt_path = f'/u/bconn/Projects/Simulations/IllustrisTNG/Scripts/SKIRT'
 
             f_stars = f'{tmp_path}/shalo_{snap:03d}-{sub}_stars.dat'
