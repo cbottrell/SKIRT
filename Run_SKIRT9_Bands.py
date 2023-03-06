@@ -473,6 +473,7 @@ def run_only(args):
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     mstar_lower=9.
+    mstar_upper=10.5
     cams = ['v0','v1','v2','v3']
     
     # # base path where TNG data is stored
@@ -492,7 +493,7 @@ def run_only(args):
     for snap in snaps:
         # photometry path
         phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
-        subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=mstar_lower)
+        subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=mstar_lower,mstar_upper=mstar_upper)
         subs = subs[task_idx::ntasks]
         for sub in subs:
             # working directory for job

@@ -1,8 +1,10 @@
 #!/bin/bash -l 
 #SBATCH --job-name=run_skirt
-#SBATCH --time=24:00:00
+#SBATCH --time=2-00:00:00
+# #SBATCH --nodes=1
+# #SBATCH --ntasks-per-node=1
 #SBATCH --ntasks=4
-#SBATCH --cpus-per-task=9
+#SBATCH --cpus-per-task=9 
 #SBATCH --mem=240GB
 #SBATCH --array=0-299
 #SBATCH --partition=p.large
@@ -17,7 +19,7 @@ export PATH=$HOME/conda-envs:$PATH
 source $HOME/.bashrc
 conda activate tf39_cpu
 
-export SIM='TNG100-1'
+export SIM='TNG50-1'
 export JOB_ARRAY_SIZE=300
 export JOB_ARRAY_INDEX=$SLURM_ARRAY_TASK_ID
 
