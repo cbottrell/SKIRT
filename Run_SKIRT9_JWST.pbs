@@ -1,0 +1,30 @@
+#!/bin/bash 
+#PBS -N JWST
+#PBS -o /home/connor.bottrell/Scratch/pbs
+#PBS -e /home/connor.bottrell/Scratch/pbs
+#PBS -l select=1:ncpus=52:mem=1200gb
+#PBS -l walltime=96:00:00
+#PBS -J 0-39:1
+#PBS -u bottrell
+#PBS -M connor.bottrell@ipmu.jp
+#PBS -m ae
+#PBS -V
+#PBS -q mini
+
+source ~/.bash_profile
+conda activate tf39_cpu
+export SKIRT_NTASKS=4
+export SKIRT_CPUS_PER_TASK=13
+export OMP_NUM_THREADS=13
+export PATH=$HOME/utils/SKIRT9/release/SKIRT/main:$PATH
+export SNAP=13
+
+export SIM='TNG50-1'
+export SNAP=13
+export JOB_ARRAY_SIZE=40
+export JOB_ARRAY_INDEX=$PBS_ARRAY_INDEX
+
+cd /lustre/work/connor.bottrell/Simulations/IllustrisTNG/Scripts/SKIRT
+
+python Run_SKIRT9_JWST.py 
+
