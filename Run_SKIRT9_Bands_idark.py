@@ -291,7 +291,6 @@ def run_skirt(snap,sub,cam,sim,sim_path,tmp_path,skirt_path,out_path,
     little_h = cosmo.H0.value/100
     omega_m = cosmo.Om0
     speed_of_light = 2.998e14 # [micron/s]
-    # nsources*=200
     nsources*=packet_factor
     ski_in = f'{skirt_path}/shalo_bands.ski'
 
@@ -309,9 +308,9 @@ def run_skirt(snap,sub,cam,sim,sim_path,tmp_path,skirt_path,out_path,
     azim = azims[idx]
     
     environ = os.environ
-    if 'SKIRT_NTASKS' in environ:
-        nprocesses = int(environ['SKIRT_NTASKS'])
-        nthreads = int(environ['SKIRT_CPUS_PER_TASK'])
+    if 'SKIRT_NPROCESSES' in environ:
+        nprocesses = int(environ['SKIRT_NPROCESSES'])
+        nthreads = int(environ['SKIRT_NTHREADS'])
     else:
         nprocesses = 1
         nthreads = 1
@@ -370,7 +369,7 @@ def run_skirt(snap,sub,cam,sim,sim_path,tmp_path,skirt_path,out_path,
         
     skirt_total = f'shalo_{snap:03}-{sub}_{cam}_total.fits'
     if not os.access(skirt_total,0):
-        os.system(f'srun skirt -t {nthreads} {ski_out}')
+        os.system(f'mpirun -n {nprocesses} skirt -t {nthreads} {ski_out}')
 
     hdu = fits.open(skirt_total)
     images = hdu[0].data*1e26 # [Jy*Hz/micron/arcsec2]
@@ -478,6 +477,7 @@ def run_only(args):
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     mstar_lower=9.
+    mstar_upper=10.
     cams = ['v0','v1','v2','v3']
     
     # # base path where TNG data is stored
@@ -497,7 +497,10 @@ def run_only(args):
     for snap in snaps:
         # photometry path
         phot_path = f'{project_path}/{sim}/HSCSSP/Idealized/{snap:03}'
-        subs,mstar = get_subhalos(sim_path,snap=snap,mstar_lower=mstar_lower)
+        subs,mstar = get_subhalos(
+            sim_path,snap=snap,
+            mstar_lower=mstar_lower,
+            mstar_upper=mstar_upper)
         subs = subs[task_idx::ntasks]
         for sub in subs:
             # working directory for job
