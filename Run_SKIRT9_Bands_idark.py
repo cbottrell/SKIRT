@@ -477,7 +477,7 @@ def run_only(args):
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     mstar_lower=9.
-    mstar_upper=10.
+    mstar_upper=np.inf
     cams = ['v0','v1','v2','v3']
     
     # # base path where TNG data is stored

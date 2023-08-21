@@ -3,8 +3,8 @@
 #PBS -o /home/connor.bottrell/Scratch/pbs
 #PBS -e /home/connor.bottrell/Scratch/pbs
 #PBS -l select=1:ncpus=52:mem=360gb
-#PBS -l walltime=48:00:00
-#PBS -J 0-299
+#PBS -l walltime=96:00:00
+#PBS -J 0-15
 #PBS -u bottrell
 #PBS -M connor.bottrell@ipmu.jp
 #PBS -m ae
@@ -15,10 +15,10 @@ source ~/.bash_profile
 conda activate tf39_cpu
 
 export SIM='TNG50-1'
-export JOB_ARRAY_SIZE=300
+export JOB_ARRAY_SIZE=16
 export JOB_ARRAY_INDEX=$PBS_ARRAY_INDEX
-export SKIRT_NPROCESSES=4
-export SKIRT_NTHREADS=13
+export SKIRT_NPROCESSES=1
+export SKIRT_NTHREADS=52
 
 export PATH=$HOME/utils/SKIRT9/release/SKIRT/main:$PATH
 
