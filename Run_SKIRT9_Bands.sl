@@ -4,9 +4,9 @@
 # #SBATCH --nodes=1
 # #SBATCH --ntasks-per-node=1
 #SBATCH --ntasks=4
-#SBATCH --cpus-per-task=9 
+#SBATCH --cpus-per-task=9
 #SBATCH --mem=240GB
-#SBATCH --array=0-299
+#SBATCH --array=0-49
 #SBATCH --partition=p.large
 #SBATCH --mail-type=END
 #SBATCH --error='/u/bconn/Scratch/%x-%A_%a.err' 
@@ -20,7 +20,7 @@ source $HOME/.bashrc
 conda activate tf39_cpu
 
 export SIM='TNG50-1'
-export JOB_ARRAY_SIZE=300
+export JOB_ARRAY_SIZE=50
 export JOB_ARRAY_INDEX=$SLURM_ARRAY_TASK_ID
 
 export SKIRT_NTASKS=$SLURM_NTASKS
