@@ -18,6 +18,15 @@ conda activate tf39_cpu
 export JOB_ARRAY_SIZE=10
 export JOB_ARRAY_INDEX=$SLURM_ARRAY_TASK_ID
 
+# export UNIVERSE='Simba'
+# export SIMULATION='L100n1024FP'
+
+export UNIVERSE='Eagle'
+export SIMULATION='Eagle100-1'
+
+# export UNIVERSE='IllustrisTNG'
+# export SIMULATION='TNG100-1'
+
 export SKIRT_NTASKS=$SLURM_NTASK
 export SKIRT_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK

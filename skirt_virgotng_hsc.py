@@ -439,14 +439,14 @@ def run_skirt(universe, simulation,
 def prepare_only(args):
     
     environ = os.environ
-    universe = 'Eagle'
-    simulation = 'Eagle100-1'
+    universe = environ['UNIVERSE']
+    simulation = environ['SIMULATION']
     snapMin,snapMax = 27,27
     snaps = np.arange(snapMin,snapMax+1)
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     cams = ['v0','v1','v2','v3']
-    mstar_lower = 10.5
+    mstar_lower = 10
 
     # base path where TNG data is stored
     sim_path = f'/virgotng/universe/{universe}/{simulation}/output'
@@ -479,15 +479,15 @@ def prepare_only(args):
 def run_only(args):
     
     environ = os.environ
-    universe = 'Eagle'
-    simulation = 'Eagle100-1'
+    universe = environ['UNIVERSE']
+    simulation = environ['SIMULATION']
     snapMin,snapMax = 27,27
     snaps = np.arange(snapMin,snapMax+1)
     ntasks = int(environ['JOB_ARRAY_SIZE'])
     task_idx = int(environ['JOB_ARRAY_INDEX'])
     cams = ['v0','v1','v2','v3']
-    mstar_lower=10.5
-    mstar_upper=11.5
+    mstar_lower=10
+    mstar_upper=np.inf
     
     # base path where TNG data is stored
     sim_path = f'/virgotng/universe/{universe}/{simulation}/output'

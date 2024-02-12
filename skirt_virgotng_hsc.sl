@@ -1,6 +1,6 @@
 #!/bin/bash -l 
 #SBATCH --job-name=virgotng
-#SBATCH --time=1-00:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --ntasks=4
 #SBATCH --cpus-per-task=9
 #SBATCH --mem=240GB
@@ -17,7 +17,15 @@ export PATH=$HOME/conda-envs:$PATH
 source $HOME/.bashrc
 conda activate tf39_cpu
 
-export SIM='Eagle100-1'
+# export UNIVERSE='Simba'
+# export SIMULATION='L100n1024FP'
+
+export UNIVERSE='Eagle'
+export SIMULATION='Eagle100-1'
+
+# export UNIVERSE='IllustrisTNG'
+# export SIMULATION='TNG100-1'
+
 export JOB_ARRAY_SIZE=10
 export JOB_ARRAY_INDEX=$SLURM_ARRAY_TASK_ID
 
